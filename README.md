@@ -258,3 +258,52 @@ app.add_middleware(
     allow_headers=["*"],
 )
 ```
+
+---
+
+## 6. Setup and Run Instructions
+
+### Prerequisites
+- Python 3.8+ installed on your system.
+
+### Installation
+
+1. **Clone the repository (if applicable)** and navigate to the project root:
+   ```bash
+   cd ALink
+   ```
+
+2. **Create a virtual environment:**
+   ```bash
+   python3 -m venv .venv
+   ```
+
+3. **Activate the virtual environment:**
+   - On macOS/Linux:
+     ```bash
+     source .venv/bin/activate
+     ```
+   - On Windows:
+     ```bash
+     .venv\Scripts\activate
+     ```
+
+4. **Install the dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+### Running the Application
+
+This project includes a convenient script to start both the FastAPI backend and the frontend server simultaneously.
+
+1. Ensure your virtual environment is activated.
+2. Run the startup script from the root directory:
+   ```bash
+   python run.py
+   ```
+3. The servers will start:
+   - Frontend will be available at: `http://127.0.0.1:5500`
+   - Backend API Docs (Swagger UI) at: `http://127.0.0.1:8000/docs`
+
+To stop the servers, simply press `Ctrl+C` in your terminal.
