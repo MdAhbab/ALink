@@ -1,0 +1,149 @@
+/* 
+   Color Palette:
+   Deep Navy Blue: #0B1D3A
+   Crisp White: #FFFFFF
+   Gold: #D4AF37
+   Teal: #008080
+   Slate Grey: #708090
+*/
+
+:root {
+    --primary-navy: #0B1D3A;
+    --white: #FFFFFF;
+    --accent-gold: #D4AF37;
+    --accent-teal: #008080;
+    --slate-grey: #708090;
+    --font-primary: 'Inter', sans-serif;
+    --font-secondary: 'Roboto', sans-serif;
+}
+
+body, html {
+    margin: 0;
+    padding: 0;
+    font-family: var(--font-primary);
+    background-color: var(--white);
+    color: var(--primary-navy);
+    height: 100%;
+}
+
+.transparent-header {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    padding: 20px 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: transparent;
+    z-index: 10;
+    box-sizing: border-box;
+}
+
+.logo h1 {
+    color: var(--accent-gold);
+    margin: 0;
+    font-size: 2rem;
+}
+
+.tagline {
+    color: var(--slate-grey);
+    font-size: 1rem;
+}
+
+.split-view {
+    display: flex;
+    height: 100vh;
+}
+
+.info-side {
+    width: 60%;
+    background-color: var(--primary-navy);
+    color: var(--white);
+    padding: 120px 60px; /* offset header padding */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.info-side h2, .info-side h3 {
+    color: var(--accent-gold);
+}
+
+.auth-side {
+    width: 40%;
+    background-color: #f4f7f6;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 40px;
+}
+
+.auth-box {
+    width: 100%;
+    max-width: 350px;
+    background: var(--white);
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.tabs {
+    display: flex;
+    margin-bottom: 20px;
+}
+
+.tabs button {
+    flex: 1;
+    padding: 10px;
+    background: none;
+    border: none;
+    border-bottom: 2px solid var(--slate-grey);
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--slate-grey);
+}
+
+.tabs button.active {
+    border-bottom-color: var(--accent-teal);
+    color: var(--accent-teal);
+}
+
+form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+input {
+    padding: 12px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-family: var(--font-primary);
+}
+
+.primary-btn {
+    background-color: var(--accent-teal);
+    color: var(--white);
+    border: none;
+    padding: 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background 0.3s;
+}
+
+.primary-btn:hover {
+    background-color: #006666;
+}
+
+footer {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    text-align: center;
+    padding: 15px;
+    color: var(--slate-grey);
+    font-size: 0.9rem;
+}

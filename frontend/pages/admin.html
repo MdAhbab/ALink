@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - ALink</title>
+    <link rel="stylesheet" href="../assets/css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        .dashboard-header {
+            background: var(--primary-navy);
+            padding: 15px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: white;
+        }
+        .dashboard-header h2 {
+            color: var(--accent-gold);
+            margin: 0;
+        }
+        .dashboard-header nav {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        .dashboard-header nav a {
+            color: white;
+            text-decoration: none;
+        }
+        .dashboard-header nav button {
+            background: var(--accent-teal);
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .admin-container {
+            max-width: 1400px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: white;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            text-align: center;
+        }
+        .stat-card h3 {
+            margin: 0;
+            font-size: 2.5rem;
+            color: var(--accent-teal);
+        }
+        .stat-card p {
+            margin: 10px 0 0 0;
+            color: var(--slate-grey);
+            font-weight: 500;
+        }
+        .admin-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .admin-tab {
+            padding: 10px 20px;
+            background: white;
+            border: 2px solid var(--primary-navy);
+            color: var(--primary-navy);
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        .admin-tab.active {
+            background: var(--primary-navy);
+            color: white;
+        }
+        .section-card {
+            background: white;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        .section-card h2 {
+            margin-top: 0;
+            color: var(--primary-navy);
+            border-bottom: 2px solid var(--accent-gold);
+            padding-bottom: 10px;
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        .data-table th, .data-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        .data-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: var(--primary-navy);
+        }
+        .data-table tr:hover {
+            background: #f8f9fa;
+        }
+        .btn-approve {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+        .btn-decline {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+        .btn-view {
+            background: var(--accent-teal);
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+        .btn-delete {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        .status-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .status-accepted {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status-declined {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .status-verified {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status-unverified {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .filters {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            align-items: center;
+        }
+        .filters select {
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: var(--slate-grey);
+        }
+        .access-denied {
+            text-align: center;
+            padding: 100px 20px;
+        }
+        .access-denied h1 {
+            color: #dc3545;
+        }
+    </style>
+</head>
+<body style="background-color: #f4f7f6;">
+    <header class="dashboard-header">
+        <h2>ALink Admin</h2>
+        <nav>
+            <a href="dashboard.html">Home</a>
+            <a href="profile.html">Profile</a>
+            <a href="connections.html">Connections</a>
+            <a href="admin.html">Admin</a>
+            <button onclick="logout()">Logout</button>
+        </nav>
+    </header>
+
+    <div id="access-denied" class="access-denied" style="display: none;">
+        <h1>Access Denied</h1>
+        <p>You do not have permission to access the admin panel.</p>
+        <a href="dashboard.html">Return to Dashboard</a>
+    </div>
+
+    <div id="admin-content" class="admin-container">
+        <!-- Stats Grid -->
+        <div class="stats-grid" id="stats-grid">
+            <div class="stat-card">
+                <h3 id="stat-users">-</h3>
+                <p>Total Users</p>
+            </div>
+            <div class="stat-card">
+                <h3 id="stat-students">-</h3>
+                <p>Students</p>
+            </div>
+            <div class="stat-card">
+                <h3 id="stat-alumni">-</h3>
+                <p>Alumni</p>
+            </div>
+            <div class="stat-card">
+                <h3 id="stat-verifications">-</h3>
+                <p>Pending Verifications</p>
+            </div>
+            <div class="stat-card">
+                <h3 id="stat-bookings">-</h3>
+                <p>Pending Bookings</p>
+            </div>
+            <div class="stat-card">
+                <h3 id="stat-referrals">-</h3>
+                <p>Pending Referrals</p>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="admin-tabs">
+            <button class="admin-tab active" onclick="showAdminTab('users')">Users</button>
+            <button class="admin-tab" onclick="showAdminTab('verifications')">Verifications</button>
+            <button class="admin-tab" onclick="showAdminTab('bookings')">Bookings</button>
+            <button class="admin-tab" onclick="showAdminTab('referrals')">Referrals</button>
+            <button class="admin-tab" onclick="showAdminTab('jobs')">Job Posts</button>
+        </div>
+
+        <!-- Users Section -->
+        <div id="users-section" class="section-card">
+            <h2>User Management</h2>
+            <div class="filters">
+                <select id="user-role-filter" onchange="loadUsers()">
+                    <option value="">All Roles</option>
+                    <option value="student">Students</option>
+                    <option value="alumni">Alumni</option>
+                    <option value="admin">Admins</option>
+                </select>
+            </div>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>Verification</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="users-table-body">
+                    <tr><td colspan="5" class="empty-state">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Verifications Section -->
+        <div id="verifications-section" class="section-card" style="display: none;">
+            <h2>Verification Queue</h2>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>User ID</th>
+                        <th>ID Card</th>
+                        <th>Submitted</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="verifications-table-body">
+                    <tr><td colspan="5" class="empty-state">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Bookings Section -->
+        <div id="bookings-section" class="section-card" style="display: none;">
+            <h2>Consultation Bookings</h2>
+            <div class="filters">
+                <select id="booking-status-filter" onchange="loadBookings()">
+                    <option value="">All Status</option>
+                    <option value="requested">Requested</option>
+                    <option value="accepted">Accepted</option>
+                    <option value="declined">Declined</option>
+                </select>
+            </div>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Student ID</th>
+                        <th>Alumni ID</th>
+                        <th>Scheduled Time</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="bookings-table-body">
+                    <tr><td colspan="5" class="empty-state">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Referrals Section -->
+        <div id="referrals-section" class="section-card" style="display: none;">
+            <h2>Referral Requests</h2>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Student ID</th>
+                        <th>Pitch Preview</th>
+                        <th>Resume</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="referrals-table-body">
+                    <tr><td colspan="6" class="empty-state">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Jobs Section -->
+        <div id="jobs-section" class="section-card" style="display: none;">
+            <h2>Job Posts</h2>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Author ID</th>
+                        <th>Content Preview</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="jobs-table-body">
+                    <tr><td colspan="5" class="empty-state">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="../assets/js/api.js"></script>
+    <script src="../assets/js/main.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (!checkAuth()) return;
+
+            const user = getCurrentUser();
+            if (!user || user.role !== 'admin') {
+                document.getElementById('admin-content').style.display = 'none';
+                document.getElementById('access-denied').style.display = 'block';
+                return;
+            }
+
+            await loadStats();
+            await loadUsers();
+        });
+
+        function showAdminTab(tabName) {
+            // Hide all sections
+            document.querySelectorAll('.section-card').forEach(el => el.style.display = 'none');
+            document.querySelectorAll('.admin-tab').forEach(el => el.classList.remove('active'));
+
+            // Show selected section
+            document.getElementById(tabName + '-section').style.display = 'block';
+            event.target.classList.add('active');
+
+            // Load data for the tab
+            switch (tabName) {
+                case 'users': loadUsers(); break;
+                case 'verifications': loadVerifications(); break;
+                case 'bookings': loadBookings(); break;
+                case 'referrals': loadReferrals(); break;
+                case 'jobs': loadJobs(); break;
+            }
+        }
+
+        async function loadStats() {
+            try {
+                const stats = await api.request('/admin/stats', 'GET', null, true);
+                if (stats && !stats.detail) {
+                    document.getElementById('stat-users').textContent = stats.total_users || 0;
+                    document.getElementById('stat-students').textContent = stats.total_students || 0;
+                    document.getElementById('stat-alumni').textContent = stats.total_alumni || 0;
+                    document.getElementById('stat-verifications').textContent = stats.pending_verifications || 0;
+                    document.getElementById('stat-bookings').textContent = stats.pending_bookings || 0;
+                    document.getElementById('stat-referrals').textContent = stats.pending_referrals || 0;
+                }
+            } catch (err) {
+                console.error('Error loading stats:', err);
+            }
+        }
+
+        async function loadUsers() {
+            const role = document.getElementById('user-role-filter').value;
+            let endpoint = '/admin/users';
+            if (role) endpoint += '?role=' + role;
+
+            try {
+                const users = await api.request(endpoint, 'GET', null, true);
+                const tbody = document.getElementById('users-table-body');
+
+                if (!users || users.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No users found.</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = users.map(u => `
+                    <tr>
+                        <td>${u.id}</td>
+                        <td>${u.email}</td>
+                        <td>${u.role}</td>
+                        <td><span class="status-badge status-${u.is_verified}">${u.is_verified}</span></td>
+                        <td>
+                            <button class="btn-delete" onclick="deleteUser(${u.id})">Delete</button>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (err) {
+                document.getElementById('users-table-body').innerHTML = '<tr><td colspan="5" class="empty-state">Error loading users.</td></tr>';
+            }
+        }
+
+        async function loadVerifications() {
+            try {
+                const verifications = await api.request('/admin/verifications', 'GET', null, true);
+                const tbody = document.getElementById('verifications-table-body');
+
+                if (!verifications || verifications.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No pending verifications.</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = verifications.map(v => `
+                    <tr>
+                        <td>${v.id}</td>
+                        <td>${v.user_id}</td>
+                        <td><a href="${v.id_card_url}" target="_blank">View ID Card</a></td>
+                        <td>${v.timestamp}</td>
+                        <td>
+                            <button class="btn-approve" onclick="processVerification(${v.id}, true)">Approve</button>
+                            <button class="btn-decline" onclick="processVerification(${v.id}, false)">Decline</button>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (err) {
+                document.getElementById('verifications-table-body').innerHTML = '<tr><td colspan="5" class="empty-state">Error loading verifications.</td></tr>';
+            }
+        }
+
+        async function loadBookings() {
+            const status = document.getElementById('booking-status-filter').value;
+            let endpoint = '/admin/bookings';
+            if (status) endpoint += '?status=' + status;
+
+            try {
+                const bookings = await api.request(endpoint, 'GET', null, true);
+                const tbody = document.getElementById('bookings-table-body');
+
+                if (!bookings || bookings.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No bookings found.</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = bookings.map(b => `
+                    <tr>
+                        <td>${b.id}</td>
+                        <td>${b.student_id}</td>
+                        <td>${b.alumni_id}</td>
+                        <td>${b.scheduled_time}</td>
+                        <td><span class="status-badge status-${b.status}">${b.status}</span></td>
+                    </tr>
+                `).join('');
+            } catch (err) {
+                document.getElementById('bookings-table-body').innerHTML = '<tr><td colspan="5" class="empty-state">Error loading bookings.</td></tr>';
+            }
+        }
+
+        async function loadReferrals() {
+            try {
+                const referrals = await api.request('/admin/referrals', 'GET', null, true);
+                const tbody = document.getElementById('referrals-table-body');
+
+                if (!referrals || referrals.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No referrals found.</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = referrals.map(r => `
+                    <tr>
+                        <td>${r.id}</td>
+                        <td>${r.student_id}</td>
+                        <td>${r.pitch ? r.pitch.substring(0, 50) + '...' : 'N/A'}</td>
+                        <td><a href="${r.resume_link}" target="_blank">View Resume</a></td>
+                        <td>${r.created_at}</td>
+                        <td>
+                            <button class="btn-view" onclick="viewReferralDetail(${r.id})">View Details</button>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (err) {
+                document.getElementById('referrals-table-body').innerHTML = '<tr><td colspan="6" class="empty-state">Error loading referrals.</td></tr>';
+            }
+        }
+
+        async function loadJobs() {
+            try {
+                const jobs = await api.request('/admin/jobs', 'GET', null, true);
+                const tbody = document.getElementById('jobs-table-body');
+
+                if (!jobs || jobs.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No job posts found.</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = jobs.map(j => `
+                    <tr>
+                        <td>${j.id}</td>
+                        <td>${j.author_id}</td>
+                        <td>${j.content ? j.content.substring(0, 50) + '...' : 'N/A'}</td>
+                        <td>${j.created_at}</td>
+                        <td>
+                            <button class="btn-delete" onclick="deleteJob(${j.id})">Delete</button>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (err) {
+                document.getElementById('jobs-table-body').innerHTML = '<tr><td colspan="5" class="empty-state">Error loading jobs.</td></tr>';
+            }
+        }
+
+        async function deleteUser(userId) {
+            if (!confirm('Are you sure you want to delete this user?')) return;
+
+            try {
+                const result = await api.request('/admin/users/' + userId, 'DELETE', null, true);
+                alert(result.message || 'User deleted');
+                loadUsers();
+                loadStats();
+            } catch (err) {
+                alert('Error deleting user');
+            }
+        }
+
+        async function processVerification(requestId, approve) {
+            const feedback = approve ? null : prompt('Enter feedback for the user (optional):');
+
+            try {
+                let endpoint = '/admin/verifications/' + requestId + '?approve=' + approve;
+                if (feedback) endpoint += '&feedback=' + encodeURIComponent(feedback);
+
+                const result = await api.request(endpoint, 'PUT', null, true);
+                alert(result.message || 'Verification processed');
+                loadVerifications();
+                loadStats();
+            } catch (err) {
+                alert('Error processing verification');
+            }
+        }
+
+        async function viewReferralDetail(referralId) {
+            try {
+                const detail = await api.request('/admin/referrals/' + referralId, 'GET', null, true);
+                if (detail) {
+                    alert(`Referral #${referralId}\n\nPitch: ${detail.referral.pitch}\n\nResume: ${detail.referral.resume_link}\n\nRecipients: ${detail.recipients.length}`);
+                }
+            } catch (err) {
+                alert('Error loading referral details');
+            }
+        }
+
+        async function deleteJob(jobId) {
+            if (!confirm('Are you sure you want to delete this job post?')) return;
+
+            try {
+                const result = await api.request('/admin/jobs/' + jobId, 'DELETE', null, true);
+                alert(result.message || 'Job post deleted');
+                loadJobs();
+            } catch (err) {
+                alert('Error deleting job post');
+            }
+        }
+    </script>
+</body>
+</html>

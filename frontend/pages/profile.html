@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile - ALink</title>
+    <link rel="stylesheet" href="../assets/css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        .dashboard-header {
+            background: var(--primary-navy);
+            padding: 15px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: white;
+        }
+        .dashboard-header h2 {
+            color: var(--accent-gold);
+            margin: 0;
+        }
+        .dashboard-header nav {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        .dashboard-header nav a {
+            color: white;
+            text-decoration: none;
+        }
+        .dashboard-header nav a:hover {
+            color: var(--accent-gold);
+        }
+        .dashboard-header nav button {
+            background: var(--accent-teal);
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .profile-container {
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+        .profile-card {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        .profile-card h1 {
+            margin-top: 0;
+            color: var(--primary-navy);
+            border-bottom: 2px solid var(--accent-gold);
+            padding-bottom: 10px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: var(--primary-navy);
+        }
+        .form-group input, .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-family: var(--font-primary);
+            box-sizing: border-box;
+        }
+        .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .role-badge {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            margin-left: 10px;
+        }
+        .role-student {
+            background: var(--accent-teal);
+            color: white;
+        }
+        .role-alumni {
+            background: var(--accent-gold);
+            color: var(--primary-navy);
+        }
+        .role-admin {
+            background: var(--primary-navy);
+            color: white;
+        }
+        .verification-status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+        }
+        .status-verified {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .status-unverified {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .btn-save {
+            background: var(--accent-teal);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 1rem;
+        }
+        .btn-save:hover {
+            background: #006666;
+        }
+    </style>
+</head>
+<body style="background-color: #f4f7f6;">
+    <header class="dashboard-header">
+        <h2>ALink</h2>
+        <nav>
+            <a href="dashboard.html">Home</a>
+            <a href="profile.html">Profile</a>
+            <a href="connections.html">Connections</a>
+            <a href="admin.html" id="admin-link" style="display: none;">Admin</a>
+            <button onclick="logout()">Logout</button>
+        </nav>
+    </header>
+
+    <div class="profile-container">
+        <div class="profile-card">
+            <h1>My Profile <span id="role-badge" class="role-badge"></span></h1>
+
+            <div id="verification-status" class="verification-status"></div>
+
+            <form id="profile-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="name">Full Name</label>
+                        <input type="text" id="name" placeholder="Enter your full name">
+                    </div>
+                    <div class="form-group">
+                        <label for="roll_id">Roll/ID Number</label>
+                        <input type="text" id="roll_id" placeholder="Enter your roll/ID">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="university_1">Primary University</label>
+                        <input type="text" id="university_1" placeholder="Enter university name">
+                    </div>
+                    <div class="form-group">
+                        <label for="university_2">Secondary University (Optional)</label>
+                        <input type="text" id="university_2" placeholder="Enter university name">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="high_school_1">Primary High School/College</label>
+                        <input type="text" id="high_school_1" placeholder="Enter school name">
+                    </div>
+                    <div class="form-group">
+                        <label for="high_school_2">Secondary High School/College (Optional)</label>
+                        <input type="text" id="high_school_2" placeholder="Enter school name">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="major">Major/Field of Study</label>
+                        <input type="text" id="major" placeholder="e.g., Computer Science">
+                    </div>
+                    <div class="form-group">
+                        <label for="grad_year">Graduation Year</label>
+                        <input type="number" id="grad_year" placeholder="e.g., 2024" min="1950" max="2030">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="industry">Industry</label>
+                        <input type="text" id="industry" placeholder="e.g., Technology">
+                    </div>
+                    <div class="form-group">
+                        <label for="company">Company</label>
+                        <input type="text" id="company" placeholder="e.g., Google">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="bio">Bio</label>
+                    <textarea id="bio" placeholder="Tell us about yourself..."></textarea>
+                </div>
+
+                <button type="submit" class="btn-save">Save Profile</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="../assets/js/api.js"></script>
+    <script src="../assets/js/main.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (!checkAuth()) return;
+
+            const user = getCurrentUser();
+
+            // Show admin link if user is admin
+            if (user && user.role === 'admin') {
+                document.getElementById('admin-link').style.display = 'inline';
+            }
+
+            // Set role badge
+            const roleBadge = document.getElementById('role-badge');
+            if (user) {
+                roleBadge.textContent = user.role.charAt(0).toUpperCase() + user.role.slice(1);
+                roleBadge.className = 'role-badge role-' + user.role;
+            }
+
+            // Load profile data
+            try {
+                const profile = await api.request('/auth/me/profile', 'GET', null, true);
+                if (profile && !profile.detail) {
+                    document.getElementById('name').value = profile.name || '';
+                    document.getElementById('roll_id').value = profile.roll_id || '';
+                    document.getElementById('university_1').value = profile.university_1 || '';
+                    document.getElementById('university_2').value = profile.university_2 || '';
+                    document.getElementById('high_school_1').value = profile.high_school_1 || '';
+                    document.getElementById('high_school_2').value = profile.high_school_2 || '';
+                    document.getElementById('major').value = profile.major || '';
+                    document.getElementById('grad_year').value = profile.grad_year || '';
+                    document.getElementById('industry').value = profile.industry || '';
+                    document.getElementById('company').value = profile.company || '';
+                    document.getElementById('bio').value = profile.bio || '';
+                }
+
+                // Load verification status
+                const userInfo = await api.request('/auth/me', 'GET', null, true);
+                const statusElement = document.getElementById('verification-status');
+                if (userInfo && userInfo.is_verified) {
+                    const status = userInfo.is_verified;
+                    let statusClass = 'status-unverified';
+                    let statusText = 'Not Verified - Please submit your ID card for verification in Settings.';
+
+                    if (status === 'verified') {
+                        statusClass = 'status-verified';
+                        statusText = 'Verified - Your account has been verified.';
+                    } else if (status === 'pending') {
+                        statusClass = 'status-pending';
+                        statusText = 'Pending - Your verification request is being reviewed.';
+                    }
+
+                    statusElement.className = 'verification-status ' + statusClass;
+                    statusElement.textContent = statusText;
+                }
+            } catch (err) {
+                console.error('Error loading profile:', err);
+            }
+
+            // Handle form submission
+            document.getElementById('profile-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+
+                const profileData = {
+                    name: document.getElementById('name').value || null,
+                    roll_id: document.getElementById('roll_id').value || null,
+                    university_1: document.getElementById('university_1').value || null,
+                    university_2: document.getElementById('university_2').value || null,
+                    high_school_1: document.getElementById('high_school_1').value || null,
+                    high_school_2: document.getElementById('high_school_2').value || null,
+                    major: document.getElementById('major').value || null,
+                    grad_year: document.getElementById('grad_year').value ? parseInt(document.getElementById('grad_year').value) : null,
+                    industry: document.getElementById('industry').value || null,
+                    company: document.getElementById('company').value || null,
+                    bio: document.getElementById('bio').value || null
+                };
+
+                try {
+                    const endpoint = user.role === 'alumni' ? '/alumni/profile' : '/student/profile';
+                    const result = await api.request(endpoint, 'PUT', profileData, true);
+                    if (result && !result.detail) {
+                        alert('Profile updated successfully!');
+                        // Reload to get updated role if changed to alumni
+                        window.location.reload();
+                    } else {
+                        alert('Error updating profile: ' + (result.detail || 'Unknown error'));
+                    }
+                } catch (err) {
+                    alert('Error updating profile');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

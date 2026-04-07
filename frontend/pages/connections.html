@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connections - ALink</title>
+    <link rel="stylesheet" href="../assets/css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        .dashboard-header {
+            background: var(--primary-navy);
+            padding: 15px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: white;
+        }
+        .dashboard-header h2 {
+            color: var(--accent-gold);
+            margin: 0;
+        }
+        .dashboard-header nav {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        .dashboard-header nav a {
+            color: white;
+            text-decoration: none;
+        }
+        .dashboard-header nav button {
+            background: var(--accent-teal);
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .connections-container {
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+        .tabs-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .tab-btn {
+            padding: 10px 20px;
+            background: white;
+            border: 2px solid var(--accent-teal);
+            color: var(--accent-teal);
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        .tab-btn.active {
+            background: var(--accent-teal);
+            color: white;
+        }
+        .section-card {
+            background: white;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+        }
+        .section-card h2 {
+            margin-top: 0;
+            color: var(--primary-navy);
+            border-bottom: 2px solid var(--accent-gold);
+            padding-bottom: 10px;
+        }
+        .alumni-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .alumni-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid var(--accent-teal);
+        }
+        .alumni-card h3 {
+            margin: 0 0 10px 0;
+            color: var(--primary-navy);
+        }
+        .alumni-card p {
+            margin: 5px 0;
+            color: var(--slate-grey);
+            font-size: 0.9rem;
+        }
+        .alumni-card .actions {
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+        }
+        .btn-connect {
+            background: var(--accent-teal);
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        .btn-connect:hover {
+            background: #006666;
+        }
+        .btn-book {
+            background: var(--accent-gold);
+            color: var(--primary-navy);
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        .btn-accept {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .btn-decline {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .filters {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .filters input, .filters select {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            min-width: 150px;
+        }
+        .filters button {
+            background: var(--primary-navy);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: var(--slate-grey);
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal.active {
+            display: flex;
+        }
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            max-width: 500px;
+            width: 90%;
+        }
+        .modal-content h3 {
+            margin-top: 0;
+        }
+        .modal-content .form-group {
+            margin-bottom: 15px;
+        }
+        .modal-content label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        .modal-content input, .modal-content textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body style="background-color: #f4f7f6;">
+    <header class="dashboard-header">
+        <h2>ALink</h2>
+        <nav>
+            <a href="dashboard.html">Home</a>
+            <a href="profile.html">Profile</a>
+            <a href="connections.html">Connections</a>
+            <a href="admin.html" id="admin-link" style="display: none;">Admin</a>
+            <button onclick="logout()">Logout</button>
+        </nav>
+    </header>
+
+    <div class="connections-container">
+        <div class="tabs-container">
+            <button class="tab-btn active" onclick="showTab('directory')">Alumni Directory</button>
+            <button class="tab-btn" onclick="showTab('connected')">Connected</button>
+            <button class="tab-btn" onclick="showTab('requests')">Requests</button>
+            <button class="tab-btn" id="finder-tab" style="display: none;" onclick="showTab('finder')">Finder</button>
+        </div>
+
+        <!-- Alumni Directory Tab -->
+        <div id="directory-tab" class="section-card">
+            <h2>Alumni Directory</h2>
+            <div class="filters">
+                <input type="text" id="filter-major" placeholder="Filter by Major">
+                <input type="text" id="filter-industry" placeholder="Filter by Industry">
+                <input type="number" id="filter-year" placeholder="Graduation Year">
+                <input type="text" id="filter-company" placeholder="Filter by Company">
+                <button onclick="filterAlumni()">Search</button>
+            </div>
+            <div id="alumni-list" class="alumni-grid">
+                <p class="empty-state">Loading alumni...</p>
+            </div>
+        </div>
+
+        <!-- Connected Tab -->
+        <div id="connected-tab" class="section-card" style="display: none;">
+            <h2>My Connections</h2>
+            <div id="connections-list" class="alumni-grid">
+                <p class="empty-state">Loading connections...</p>
+            </div>
+        </div>
+
+        <!-- Requests Tab -->
+        <div id="requests-tab" class="section-card" style="display: none;">
+            <h2>Connection Requests</h2>
+            <div id="requests-list" class="alumni-grid">
+                <p class="empty-state">Loading requests...</p>
+            </div>
+        </div>
+
+        <!-- Finder Tab (Alumni only) -->
+        <div id="finder-tab-content" class="section-card" style="display: none;">
+            <h2>Finder</h2>
+            <div class="filters">
+                <select id="finder-role">
+                    <option value="">All Roles</option>
+                    <option value="student">Students</option>
+                    <option value="alumni">Alumni</option>
+                </select>
+                <input type="text" id="finder-major" placeholder="Filter by Major">
+                <input type="text" id="finder-university" placeholder="Filter by University">
+                <button onclick="searchFinder()">Search</button>
+            </div>
+            <div id="finder-list" class="alumni-grid">
+                <p class="empty-state">Use the filters above to search for students or alumni.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Booking Modal -->
+    <div id="booking-modal" class="modal">
+        <div class="modal-content">
+            <h3>Book Consultation</h3>
+            <form id="booking-form">
+                <input type="hidden" id="booking-alumni-id">
+                <div class="form-group">
+                    <label>Alumni Name</label>
+                    <input type="text" id="booking-alumni-name" disabled>
+                </div>
+                <div class="form-group">
+                    <label>Scheduled Time</label>
+                    <input type="datetime-local" id="booking-time" required>
+                </div>
+                <div class="form-group">
+                    <label>Meeting Link (Optional)</label>
+                    <input type="url" id="booking-link" placeholder="https://meet.google.com/...">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" onclick="closeModal('booking-modal')">Cancel</button>
+                    <button type="submit" class="btn-connect">Request Consultation</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Referral Modal -->
+    <div id="referral-modal" class="modal">
+        <div class="modal-content">
+            <h3>Request Referral</h3>
+            <form id="referral-form">
+                <input type="hidden" id="referral-alumni-id">
+                <div class="form-group">
+                    <label>Your Pitch (200 words max)</label>
+                    <textarea id="referral-pitch" rows="6" placeholder="Explain why you're a good fit..." required></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Resume Link</label>
+                    <input type="url" id="referral-resume" placeholder="Link to your resume" required>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" onclick="closeModal('referral-modal')">Cancel</button>
+                    <button type="submit" class="btn-connect">Submit Referral Request</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="../assets/js/api.js"></script>
+    <script src="../assets/js/main.js"></script>
+    <script>
+        let currentUser = null;
+        let allAlumni = [];
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (!checkAuth()) return;
+
+            currentUser = getCurrentUser();
+
+            // Show admin link and finder tab for alumni
+            if (currentUser.role === 'admin') {
+                document.getElementById('admin-link').style.display = 'inline';
+            }
+            if (currentUser.role === 'alumni') {
+                document.getElementById('finder-tab').style.display = 'inline-block';
+            }
+
+            await loadAlumniDirectory();
+            await loadConnections();
+            await loadRequests();
+        });
+
+        function showTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.section-card').forEach(el => el.style.display = 'none');
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+
+            // Show selected tab
+            const tabMap = {
+                'directory': 'directory-tab',
+                'connected': 'connected-tab',
+                'requests': 'requests-tab',
+                'finder': 'finder-tab-content'
+            };
+
+            document.getElementById(tabMap[tabName]).style.display = 'block';
+            event.target.classList.add('active');
+        }
+
+        async function loadAlumniDirectory() {
+            try {
+                const alumni = await api.request('/student/alumni', 'GET', null, true);
+                allAlumni = alumni || [];
+                renderAlumniList(allAlumni);
+            } catch (err) {
+                document.getElementById('alumni-list').innerHTML = '<p class="empty-state">Error loading alumni.</p>';
+            }
+        }
+
+        function filterAlumni() {
+            const major = document.getElementById('filter-major').value.toLowerCase();
+            const industry = document.getElementById('filter-industry').value.toLowerCase();
+            const year = document.getElementById('filter-year').value;
+            const company = document.getElementById('filter-company').value.toLowerCase();
+
+            let filtered = allAlumni;
+
+            if (major || industry || year || company) {
+                // Re-fetch with filters
+                let params = new URLSearchParams();
+                if (major) params.append('major', major);
+                if (industry) params.append('industry', industry);
+                if (year) params.append('grad_year', year);
+                if (company) params.append('company', company);
+
+                api.request('/student/alumni?' + params.toString(), 'GET', null, true)
+                    .then(data => renderAlumniList(data || []))
+                    .catch(() => renderAlumniList([]));
+            } else {
+                renderAlumniList(allAlumni);
+            }
+        }
+
+        function renderAlumniList(alumni) {
+            const container = document.getElementById('alumni-list');
+
+            if (!alumni || alumni.length === 0) {
+                container.innerHTML = '<p class="empty-state">No alumni found.</p>';
+                return;
+            }
+
+            container.innerHTML = alumni.map(a => `
+                <div class="alumni-card">
+                    <h3>${a.name || 'Alumni Member'}</h3>
+                    <p>Institution: ${a.university || 'Not specified'}</p>
+                    <p>Job Place: ${a.company || 'Not specified'}</p>
+                    <div class="actions">
+                        <button class="btn-connect" onclick="sendConnectionRequest(${a.id})">Connect</button>
+                        <button class="btn-book" onclick="openBookingModal(${a.id}, '${(a.name || 'Alumni Member').replace(/'/g, "\\'")}')">Book Consultation</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function loadConnections() {
+            try {
+                const endpoint = currentUser.role === 'alumni' ? '/alumni/connections' : '/student/connections';
+                const connections = await api.request(endpoint, 'GET', null, true);
+                renderConnections(connections || []);
+            } catch (err) {
+                document.getElementById('connections-list').innerHTML = '<p class="empty-state">Error loading connections.</p>';
+            }
+        }
+
+        function renderConnections(connections) {
+            const container = document.getElementById('connections-list');
+
+            if (!connections || connections.length === 0) {
+                container.innerHTML = '<p class="empty-state">No connections yet.</p>';
+                return;
+            }
+
+            container.innerHTML = connections.map(c => `
+                <div class="alumni-card">
+                    <h3>Connection #${c.id}</h3>
+                    <p>Status: ${c.status}</p>
+                    <p>Requester ID: ${c.requester_id}</p>
+                    <p>Receiver ID: ${c.receiver_id}</p>
+                </div>
+            `).join('');
+        }
+
+        async function loadRequests() {
+            try {
+                const endpoint = currentUser.role === 'alumni' ? '/alumni/connections/requests' : '/student/connections/requests';
+                const requests = await api.request(endpoint, 'GET', null, true);
+                renderRequests(requests || []);
+            } catch (err) {
+                document.getElementById('requests-list').innerHTML = '<p class="empty-state">Error loading requests.</p>';
+            }
+        }
+
+        function renderRequests(requests) {
+            const container = document.getElementById('requests-list');
+
+            if (!requests || requests.length === 0) {
+                container.innerHTML = '<p class="empty-state">No pending requests.</p>';
+                return;
+            }
+
+            container.innerHTML = requests.map(r => `
+                <div class="alumni-card">
+                    <h3>Request #${r.id}</h3>
+                    <p>From User ID: ${r.requester_id}</p>
+                    <p>Status: ${r.status}</p>
+                    <div class="actions">
+                        <button class="btn-accept" onclick="respondToRequest(${r.id}, true)">Accept</button>
+                        <button class="btn-decline" onclick="respondToRequest(${r.id}, false)">Decline</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function sendConnectionRequest(receiverId) {
+            try {
+                const result = await api.request('/student/connections', 'POST', { receiver_id: receiverId }, true);
+                if (result && !result.detail) {
+                    alert('Connection request sent!');
+                } else {
+                    alert('Error: ' + (result.detail || 'Could not send request'));
+                }
+            } catch (err) {
+                alert('Error sending connection request');
+            }
+        }
+
+        async function respondToRequest(connectionId, accept) {
+            try {
+                const endpoint = currentUser.role === 'alumni' ? '/alumni/connections/' : '/student/connections/';
+                const result = await api.request(endpoint + connectionId + '?accept=' + accept, 'PUT', null, true);
+                alert(result.message || 'Request processed');
+                loadRequests();
+                loadConnections();
+            } catch (err) {
+                alert('Error processing request');
+            }
+        }
+
+        function openBookingModal(alumniId, alumniName) {
+            document.getElementById('booking-alumni-id').value = alumniId;
+            document.getElementById('booking-alumni-name').value = alumniName;
+            document.getElementById('booking-modal').classList.add('active');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+
+        document.getElementById('booking-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const alumniId = document.getElementById('booking-alumni-id').value;
+            const scheduledTime = document.getElementById('booking-time').value;
+            const meetingLink = document.getElementById('booking-link').value;
+
+            try {
+                const result = await api.request('/student/bookings', 'POST', {
+                    alumni_id: parseInt(alumniId),
+                    scheduled_time: scheduledTime,
+                    meeting_link: meetingLink || null
+                }, true);
+
+                if (result && !result.detail) {
+                    alert('Consultation request sent!');
+                    closeModal('booking-modal');
+                } else {
+                    alert('Error: ' + (result.detail || 'Could not book consultation'));
+                }
+            } catch (err) {
+                alert('Error booking consultation');
+            }
+        });
+
+        document.getElementById('referral-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const alumniId = document.getElementById('referral-alumni-id').value;
+            const pitch = document.getElementById('referral-pitch').value;
+            const resumeLink = document.getElementById('referral-resume').value;
+
+            try {
+                const result = await api.request('/student/referrals', 'POST', {
+                    pitch: pitch,
+                    resume_link: resumeLink,
+                    alumni_ids: [parseInt(alumniId)]
+                }, true);
+
+                if (result && !result.detail) {
+                    alert('Referral request submitted!');
+                    closeModal('referral-modal');
+                } else {
+                    alert('Error: ' + (result.detail || 'Could not submit referral'));
+                }
+            } catch (err) {
+                alert('Error submitting referral');
+            }
+        });
+
+        async function searchFinder() {
+            const role = document.getElementById('finder-role').value;
+            const major = document.getElementById('finder-major').value;
+            const university = document.getElementById('finder-university').value;
+
+            let params = new URLSearchParams();
+            if (role) params.append('role', role);
+            if (major) params.append('major', major);
+            if (university) params.append('university', university);
+
+            try {
+                const results = await api.request('/alumni/finder?' + params.toString(), 'GET', null, true);
+                const container = document.getElementById('finder-list');
+
+                if (!results || results.length === 0) {
+                    container.innerHTML = '<p class="empty-state">No results found.</p>';
+                    return;
+                }
+
+                container.innerHTML = results.map(u => `
+                    <div class="alumni-card">
+                        <h3>${u.email}</h3>
+                        <p>Role: ${u.role}</p>
+                        <div class="actions">
+                            <button class="btn-connect" onclick="sendConnectionRequest(${u.id})">Connect</button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (err) {
+                document.getElementById('finder-list').innerHTML = '<p class="empty-state">Error searching.</p>';
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ALink - Alumni-Student Connection Platform</title>
+    <link rel="stylesheet" href="assets/css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        .info-side {
+            position: relative;
+            /* Note: We use a pseudo-element for cross-fading multiple background images properly */
+            background-color: var(--primary-navy);
+            overflow: hidden;
+        }
+
+        .bg-slide {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-size: cover;
+            background-position: center;
+            opacity: 0;
+            transition: opacity 1s ease-in-out;
+            z-index: 1;
+        }
+
+        .bg-slide.active {
+            opacity: 1;
+        }
+
+        .bg-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(135deg, rgba(11, 29, 58, 0.90) 0%, rgba(11, 29, 58, 0.75) 100%);
+            z-index: 2;
+        }
+
+        .info-side::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="50" cy="50" r="1" fill="white" opacity="0.03"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+            pointer-events: none;
+            z-index: 3;
+        }
+
+        .info-content {
+            position: relative;
+            z-index: 4;
+            max-width: 600px;
+        }
+
+        .info-side h2 {
+            font-size: 2.2rem;
+            margin-bottom: 15px;
+            font-weight: 700;
+        }
+
+        .info-side .subtitle {
+            font-size: 1.1rem;
+            line-height: 1.5;
+            opacity: 0.9;
+            margin-bottom: 25px;
+        }
+
+        .features-list {
+            list-style: none;
+            padding: 0;
+            margin: 20px 0;
+        }
+
+        .features-list li {
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+            font-size: 1rem;
+        }
+
+        .features-list li::before {
+            content: '✦';
+            color: var(--accent-gold);
+            margin-right: 12px;
+            font-size: 1.1rem;
+        }
+
+        .stats-row {
+            display: flex;
+            gap: 30px;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .stat-item h3 {
+            font-size: 1.8rem;
+            margin: 0;
+            color: var(--accent-gold);
+        }
+
+        .stat-item p {
+            margin: 5px 0 0 0;
+            opacity: 0.8;
+            font-size: 0.9rem;
+        }
+
+        /* Auth Side with Animated Shapes */
+        .auth-side {
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(180deg, #f8fafb 0%, #e8f4f8 100%);
+        }
+
+        /* Animated floating shapes */
+        .shape {
+            position: absolute;
+            border-radius: 50%;
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .shape-1 {
+            width: 300px;
+            height: 300px;
+            background: linear-gradient(135deg, rgba(0, 128, 128, 0.15) 0%, rgba(0, 128, 128, 0.05) 100%);
+            top: -100px;
+            right: -100px;
+            animation: float1 20s ease-in-out infinite;
+        }
+
+        .shape-2 {
+            width: 200px;
+            height: 200px;
+            background: linear-gradient(135deg, rgba(212, 175, 55, 0.15) 0%, rgba(212, 175, 55, 0.05) 100%);
+            bottom: -50px;
+            left: -50px;
+            animation: float2 15s ease-in-out infinite;
+        }
+
+        .shape-3 {
+            width: 150px;
+            height: 150px;
+            background: linear-gradient(135deg, rgba(11, 29, 58, 0.1) 0%, rgba(11, 29, 58, 0.03) 100%);
+            top: 40%;
+            right: -30px;
+            animation: float3 18s ease-in-out infinite;
+        }
+
+        .shape-4 {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, rgba(0, 128, 128, 0.2) 0%, rgba(0, 128, 128, 0.08) 100%);
+            top: 20%;
+            left: 10%;
+            animation: float4 12s ease-in-out infinite;
+        }
+
+        .shape-5 {
+            width: 120px;
+            height: 120px;
+            background: linear-gradient(135deg, rgba(212, 175, 55, 0.12) 0%, rgba(212, 175, 55, 0.04) 100%);
+            bottom: 20%;
+            right: 15%;
+            animation: float5 22s ease-in-out infinite;
+        }
+
+        /* Floating geometric shapes */
+        .geo-shape {
+            position: absolute;
+            opacity: 0.4;
+            pointer-events: none;
+        }
+
+        .geo-1 {
+            width: 40px;
+            height: 40px;
+            border: 2px solid var(--accent-teal);
+            top: 15%;
+            left: 20%;
+            transform: rotate(45deg);
+            animation: rotate1 25s linear infinite, moveUp 8s ease-in-out infinite;
+        }
+
+        .geo-2 {
+            width: 25px;
+            height: 25px;
+            background: var(--accent-gold);
+            border-radius: 4px;
+            bottom: 30%;
+            left: 8%;
+            animation: rotate2 20s linear infinite, moveDown 10s ease-in-out infinite;
+        }
+
+        .geo-3 {
+            width: 0;
+            height: 0;
+            border-left: 15px solid transparent;
+            border-right: 15px solid transparent;
+            border-bottom: 26px solid rgba(0, 128, 128, 0.3);
+            top: 60%;
+            right: 10%;
+            animation: rotate3 30s linear infinite, moveUp 12s ease-in-out infinite;
+        }
+
+        @keyframes float1 {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            25% { transform: translate(-30px, 40px) scale(1.05); }
+            50% { transform: translate(20px, -30px) scale(0.95); }
+            75% { transform: translate(-20px, -20px) scale(1.02); }
+        }
+
+        @keyframes float2 {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(40px, -30px) scale(1.08); }
+            66% { transform: translate(-20px, 40px) scale(0.92); }
+        }
+
+        @keyframes float3 {
+            0%, 100% { transform: translate(0, 0); }
+            50% { transform: translate(-40px, 30px); }
+        }
+
+        @keyframes float4 {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            50% { transform: translate(30px, -40px) scale(1.1); }
+        }
+
+        @keyframes float5 {
+            0%, 100% { transform: translate(0, 0); }
+            33% { transform: translate(-25px, -35px); }
+            66% { transform: translate(25px, 20px); }
+        }
+
+        @keyframes rotate1 {
+            from { transform: rotate(45deg); }
+            to { transform: rotate(405deg); }
+        }
+
+        @keyframes rotate2 {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes rotate3 {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(-360deg); }
+        }
+
+        @keyframes moveUp {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+
+        @keyframes moveDown {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(20px); }
+        }
+
+        /* Enhanced Auth Box */
+        .auth-box {
+            position: relative;
+            z-index: 10;
+            max-width: 380px;
+            width: 100%;
+            box-sizing: border-box;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 35px;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1), 0 8px 25px rgba(0, 0, 0, 0.08);
+        }
+
+        .auth-box h3 {
+            text-align: center;
+            margin: 0 0 25px 0;
+            color: var(--primary-navy);
+            font-size: 1.5rem;
+        }
+
+        .tabs {
+            margin-bottom: 25px;
+            border-radius: 8px;
+            background: #f0f4f5;
+            padding: 4px;
+        }
+
+        .tabs button {
+            border-radius: 6px;
+            padding: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .tabs button.active {
+            background: var(--white);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border-bottom: none;
+        }
+
+        .tabs button:not(.active):hover {
+            background: rgba(255,255,255,0.5);
+        }
+
+        /* Enhanced Form Styles */
+        .form-section {
+            margin-bottom: 20px;
+            width: 100%;
+        }
+
+        .form-section-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--slate-grey);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        input, select {
+            box-sizing: border-box;
+            width: 100%;
+            padding: 12px 14px;
+            border: 1.5px solid #e0e4e7;
+            border-radius: 8px;
+            font-family: var(--font-primary);
+            font-size: 0.95rem;
+            transition: all 0.2s ease;
+            background: #fafbfc;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--accent-teal);
+            background: var(--white);
+            box-shadow: 0 0 0 3px rgba(0, 128, 128, 0.1);
+        }
+
+        input::placeholder {
+            color: #a0a8b0;
+        }
+
+        select {
+            cursor: pointer;
+            color: #a0a8b0;
+        }
+
+        select.has-value {
+            color: var(--primary-navy);
+        }
+
+        .primary-btn {
+            padding: 14px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            margin-top: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .primary-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 128, 128, 0.3);
+        }
+
+        /* Form scrollable area for signup */
+        #signup-form {
+            max-height: 450px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding-right: 5px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        #signup-form::-webkit-scrollbar {
+            width: 5px;
+        }
+
+        #signup-form::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        #signup-form::-webkit-scrollbar-thumb {
+            background: var(--accent-teal);
+            border-radius: 10px;
+        }
+
+        /* Footer enhancement */
+        footer {
+            background: transparent;
+            z-index: 5;
+        }
+
+        .footer-left {
+            color: rgba(255,255,255,0.7);
+        }
+
+        /* Responsive */
+        @media (max-width: 968px) {
+            .split-view {
+                flex-direction: column;
+                height: auto;
+                min-height: 100vh;
+            }
+
+            .info-side, .auth-side {
+                width: 100%;
+                padding: 60px 30px;
+            }
+
+            .info-side {
+                min-height: 50vh;
+            }
+
+            .stats-row {
+                flex-wrap: wrap;
+                gap: 20px;
+            }
+
+            .transparent-header {
+                position: relative;
+                background: var(--primary-navy);
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="transparent-header">
+        <div class="logo">
+            <h1>ALink</h1>
+        </div>
+        <p class="tagline">Connecting Bangladesh's Academic Community</p>
+    </header>
+
+    <main class="split-view">
+        <section class="info-side">
+            <!-- Background image slider -->
+            <div class="bg-slide active" style="background-image: url('assets/img/HomepageImage1.jpg');"></div>
+            <div class="bg-slide" style="background-image: url('assets/img/HomepageImage2.jpg');"></div>
+            <div class="bg-slide" style="background-image: url('assets/img/HomepageImage3.jpg');"></div>
+            <div class="bg-slide" style="background-image: url('assets/img/HomepageImage4.jpg');"></div>
+            <div class="bg-slide" style="background-image: url('assets/img/HomepageImage5.jpg');"></div>
+            <div class="bg-overlay"></div>
+
+            <div class="info-content">
+                <h2>Build Your Future Network</h2>
+                <p class="subtitle">
+                    ALink connects students from top Bangladeshi universities with accomplished alumni
+                    working at leading companies worldwide. Get mentorship, referrals, and career guidance
+                    from those who've walked your path.
+                </p>
+
+                <ul class="features-list">
+                    <li>Connect with alumni from BUET, DU, KUET, CUET, RUET & more</li>
+                    <li>Request job referrals to top tech companies</li>
+                    <li>Book 1-on-1 mentorship consultations</li>
+                    <li>Access exclusive job postings and opportunities</li>
+                    <li>Build meaningful professional relationships</li>
+                </ul>
+
+                <div class="stats-row">
+                    <div class="stat-item">
+                        <h3>500+</h3>
+                        <p>Active Alumni</p>
+                    </div>
+                    <div class="stat-item">
+                        <h3>2,000+</h3>
+                        <p>Students Connected</p>
+                    </div>
+                    <div class="stat-item">
+                        <h3>150+</h3>
+                        <p>Successful Referrals</p>
+                    </div>
+                </div>
+            </div>
+
+            <div style="position: relative; z-index: 5; display: flex; justify-content: space-between; align-items: flex-end; margin-top: auto; padding-top: 40px;">
+                <div>
+                    <h3 style="color: var(--accent-gold); margin-bottom: 10px; font-size: 1.2rem;">Contact Us</h3>
+                    <p style="opacity: 0.9; margin: 5px 0; font-size: 0.95rem;">Email: support@alink.edu.bd</p>
+                    <p style="opacity: 0.9; margin: 5px 0; font-size: 0.95rem;">Phone: +880 1XXX-XXXXXX</p>
+                </div>
+                <div style="color: rgba(255,255,255,0.7); font-size: 0.9rem; text-align: right;">
+                    <p>&copy; 2026 ALink Platform<br>Connecting Bangladesh's Academic Community</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="auth-side">
+            <!-- Animated shapes -->
+            <div class="shape shape-1"></div>
+            <div class="shape shape-2"></div>
+            <div class="shape shape-3"></div>
+            <div class="shape shape-4"></div>
+            <div class="shape shape-5"></div>
+            <div class="geo-shape geo-1"></div>
+            <div class="geo-shape geo-2"></div>
+            <div class="geo-shape geo-3"></div>
+
+            <div class="auth-box">
+                <div class="tabs">
+                    <button class="active" onclick="showLogin()">Login</button>
+                    <button onclick="showSignup()">Sign Up</button>
+                </div>
+
+                <!-- Login Form -->
+                <form id="login-form">
+                    <h3>Welcome Back!</h3>
+                    <input type="email" id="login-email" placeholder="Email Address" required>
+                    <input type="password" id="login-password" placeholder="Password" required>
+                    <button type="submit" class="primary-btn">Log In</button>
+                    <p style="text-align: center; margin-top: 15px; font-size: 0.9rem; color: var(--slate-grey);">
+                        Don't have an account? <a href="#" onclick="showSignup(); return false;" style="color: var(--accent-teal);">Sign up</a>
+                    </p>
+                </form>
+
+                <!-- Signup Form -->
+                <form id="signup-form" style="display: none;">
+                    <h3>Create Account</h3>
+
+                    <!-- Personal Information -->
+                    <div class="form-section">
+                        <div class="form-section-title">Personal Information</div>
+                        <input type="text" id="signup-name" placeholder="Full Name" required>
+                        <input type="email" id="signup-email" placeholder="Email Address" required>
+                        <input type="password" id="signup-password" placeholder="Password (min 6 characters)" required minlength="6">
+                        <input type="tel" id="signup-phone" placeholder="Phone Number (optional)">
+                    </div>
+
+                    <!-- Education - University -->
+                    <div class="form-section">
+                        <div class="form-section-title">University Education</div>
+                        <select id="signup-uni1" required onchange="this.classList.toggle('has-value', this.value)">
+                            <option value="">Select Primary University *</option>
+                            <option value="BUET">Bangladesh University of Engineering and Technology (BUET)</option>
+                            <option value="DU">University of Dhaka (DU)</option>
+                            <option value="KUET">Khulna University of Engineering & Technology (KUET)</option>
+                            <option value="CUET">Chittagong University of Engineering & Technology (CUET)</option>
+                            <option value="RUET">Rajshahi University of Engineering & Technology (RUET)</option>
+                            <option value="SUST">Shahjalal University of Science and Technology (SUST)</option>
+                            <option value="BRAC">BRAC University</option>
+                            <option value="NSU">North South University (NSU)</option>
+                            <option value="IUT">Islamic University of Technology (IUT)</option>
+                            <option value="AUST">Ahsanullah University of Science and Technology (AUST)</option>
+                            <option value="UIU">United International University (UIU)</option>
+                            <option value="EWU">East West University (EWU)</option>
+                            <option value="Other">Other</option>
+                        </select>
+                        <select id="signup-uni2" onchange="this.classList.toggle('has-value', this.value)">
+                            <option value="">Secondary University (optional)</option>
+                            <option value="BUET">Bangladesh University of Engineering and Technology (BUET)</option>
+                            <option value="DU">University of Dhaka (DU)</option>
+                            <option value="KUET">Khulna University of Engineering & Technology (KUET)</option>
+                            <option value="CUET">Chittagong University of Engineering & Technology (CUET)</option>
+                            <option value="RUET">Rajshahi University of Engineering & Technology (RUET)</option>
+                            <option value="SUST">Shahjalal University of Science and Technology (SUST)</option>
+                            <option value="BRAC">BRAC University</option>
+                            <option value="NSU">North South University (NSU)</option>
+                            <option value="IUT">Islamic University of Technology (IUT)</option>
+                            <option value="AUST">Ahsanullah University of Science and Technology (AUST)</option>
+                            <option value="UIU">United International University (UIU)</option>
+                            <option value="EWU">East West University (EWU)</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+
+                    <!-- Education - School/College -->
+                    <div class="form-section">
+                        <div class="form-section-title">High School / College</div>
+                        <select id="signup-hs1" required onchange="this.classList.toggle('has-value', this.value)">
+                            <option value="">Select Primary School/College *</option>
+                            <option value="Notre Dame College">Notre Dame College, Dhaka</option>
+                            <option value="Dhaka College">Dhaka College</option>
+                            <option value="Rajuk Uttara Model College">Rajuk Uttara Model College</option>
+                            <option value="Viqarunnisa Noon College">Viqarunnisa Noon School & College</option>
+                            <option value="Holy Cross College">Holy Cross College, Dhaka</option>
+                            <option value="Adamjee Cantonment College">Adamjee Cantonment College</option>
+                            <option value="Birshreshtha Noor Mohammad College">Birshreshtha Noor Mohammad Public College</option>
+                            <option value="Chittagong College">Chittagong College</option>
+                            <option value="Rajshahi College">Rajshahi College</option>
+                            <option value="Khulna Zilla School">Khulna Zilla School</option>
+                            <option value="BAF Shaheen College">BAF Shaheen College</option>
+                            <option value="Other">Other</option>
+                        </select>
+                        <select id="signup-hs2" onchange="this.classList.toggle('has-value', this.value)">
+                            <option value="">Secondary School/College (optional)</option>
+                            <option value="Notre Dame College">Notre Dame College, Dhaka</option>
+                            <option value="Dhaka College">Dhaka College</option>
+                            <option value="Rajuk Uttara Model College">Rajuk Uttara Model College</option>
+                            <option value="Viqarunnisa Noon College">Viqarunnisa Noon School & College</option>
+                            <option value="Holy Cross College">Holy Cross College, Dhaka</option>
+                            <option value="Adamjee Cantonment College">Adamjee Cantonment College</option>
+                            <option value="Birshreshtha Noor Mohammad College">Birshreshtha Noor Mohammad Public College</option>
+                            <option value="Chittagong College">Chittagong College</option>
+                            <option value="Rajshahi College">Rajshahi College</option>
+                            <option value="Khulna Zilla School">Khulna Zilla School</option>
+                            <option value="BAF Shaheen College">BAF Shaheen College</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+
+                    <!-- Academic Details -->
+                    <div class="form-section">
+                        <div class="form-section-title">Academic Details</div>
+                        <input type="text" id="signup-roll" placeholder="Student ID / Roll Number">
+                        <select id="signup-major" onchange="this.classList.toggle('has-value', this.value)">
+                            <option value="">Select Major / Department</option>
+                            <option value="CSE">Computer Science & Engineering (CSE)</option>
+                            <option value="EEE">Electrical & Electronic Engineering (EEE)</option>
+                            <option value="ME">Mechanical Engineering (ME)</option>
+                            <option value="CE">Civil Engineering (CE)</option>
+                            <option value="IPE">Industrial & Production Engineering (IPE)</option>
+                            <option value="ChE">Chemical Engineering (ChE)</option>
+                            <option value="BME">Biomedical Engineering (BME)</option>
+                            <option value="Architecture">Architecture</option>
+                            <option value="URP">Urban & Regional Planning (URP)</option>
+                            <option value="BBA">Business Administration (BBA)</option>
+                            <option value="Economics">Economics</option>
+                            <option value="Physics">Physics</option>
+                            <option value="Mathematics">Mathematics</option>
+                            <option value="Chemistry">Chemistry</option>
+                            <option value="English">English</option>
+                            <option value="Other">Other</option>
+                        </select>
+                        <div class="form-row">
+                            <select id="signup-gradyear" onchange="this.classList.toggle('has-value', this.value)">
+                                <option value="">Graduation Year</option>
+                                <option value="2028">2028 (Expected)</option>
+                                <option value="2027">2027 (Expected)</option>
+                                <option value="2026">2026 (Expected)</option>
+                                <option value="2025">2025</option>
+                                <option value="2024">2024</option>
+                                <option value="2023">2023</option>
+                                <option value="2022">2022</option>
+                                <option value="2021">2021</option>
+                                <option value="2020">2020</option>
+                                <option value="2019">2019</option>
+                                <option value="2018">2018</option>
+                                <option value="2017">2017</option>
+                                <option value="2016">2016</option>
+                                <option value="2015">2015 or earlier</option>
+                            </select>
+                            <select id="signup-status" onchange="this.classList.toggle('has-value', this.value)">
+                                <option value="student">Current Student</option>
+                                <option value="alumni">Alumni / Graduated</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Professional Info (Optional) -->
+                    <div class="form-section">
+                        <div class="form-section-title">Professional Info (Optional)</div>
+                        <select id="signup-industry" onchange="this.classList.toggle('has-value', this.value)">
+                            <option value="">Select Industry</option>
+                            <option value="Technology">Technology / Software</option>
+                            <option value="Finance">Finance / Banking</option>
+                            <option value="Consulting">Consulting</option>
+                            <option value="Healthcare">Healthcare</option>
+                            <option value="Manufacturing">Manufacturing</option>
+                            <option value="Telecommunications">Telecommunications</option>
+                            <option value="E-commerce">E-commerce / Retail</option>
+                            <option value="Education">Education</option>
+                            <option value="Government">Government / Public Sector</option>
+                            <option value="Startups">Startups</option>
+                            <option value="Other">Other</option>
+                        </select>
+                        <input type="text" id="signup-company" placeholder="Current Company (if employed)">
+                    </div>
+
+                    <button type="submit" class="primary-btn">Create Account</button>
+                    <p style="text-align: center; margin-top: 15px; font-size: 0.9rem; color: var(--slate-grey);">
+                        Already have an account? <a href="#" onclick="showLogin(); return false;" style="color: var(--accent-teal);">Login</a>
+                    </p>
+                </form>
+            </div>
+        </section>
+    </main>
+
+    <script src="assets/js/api.js"></script>
+    <script src="assets/js/auth.js"></script>
+    <script src="assets/js/main.js"></script>
+    <script>
+        // Homepage Background Image Slider
+        const slides = document.querySelectorAll('.bg-slide');
+        if (slides.length > 0) {
+            let currentImageIndex = 0;
+            
+            // Change background every 4 seconds (3s view + 1s transition)
+            setInterval(() => {
+                slides[currentImageIndex].classList.remove('active');
+                currentImageIndex = (currentImageIndex + 1) % slides.length;
+                slides[currentImageIndex].classList.add('active');
+            }, 4000);
+        }
+    </script>
+</body>
+</html>
