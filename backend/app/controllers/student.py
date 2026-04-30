@@ -35,10 +35,6 @@ async def update_profile(
     for field, value in update_data.items():
         setattr(profile, field, value)
 
-    # Check if user should be reclassified as alumni (has graduation year set)
-    if profile_data.grad_year and profile_data.grad_year > 0:
-        current_user.role = UserRole.ALUMNI
-
     db.commit()
     db.refresh(profile)
     return profile
