@@ -35,10 +35,6 @@ async def update_profile(
     for field, value in update_data.items():
         setattr(profile, field, value)
 
-    # Check if user should be reclassified as alumni (has graduation year set)
-    if profile_data.grad_year and profile_data.grad_year > 0:
-        current_user.role = UserRole.ALUMNI
-
     db.commit()
     db.refresh(profile)
     return profile
@@ -225,15 +221,18 @@ async def submit_referral(
     db.commit()
     db.refresh(new_referral)
 
-    for alumni_id in referral.alumni_ids:
-        alumni = db.query(User).filter(User.id == alumni_id, User.role == UserRole.ALUMNI).first()
-        if alumni:
-            recipient = ReferralRecipient(
-                request_id=new_referral.id,
-                alumni_id=alumni_id,
-                status="pending"
-            )
-            db.add(recipient)
+    alumni_users = db.query(User).filter(
+        User.id.in_(referral.alumni_ids),
+        User.role == UserRole.ALUMNI
+    ).all()
+
+    for alumni in alumni_users:
+        recipient = ReferralRecipient(
+            request_id=new_referral.id,
+            alumni_id=alumni.id,
+            status="pending"
+        )
+        db.add(recipient)
 
     db.commit()
     return new_referral
