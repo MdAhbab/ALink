@@ -57,19 +57,23 @@ function showLoading(elementId) {
 
 // Show error message
 function showError(message, elementId = null) {
+    // Convert error objects to strings
+    const errorMsg = message?.message || message?.toString?.() || String(message);
+
     if (elementId) {
         const element = document.getElementById(elementId);
         if (element) {
-            element.innerHTML = `<div class="error-message">${message}</div>`;
+            element.innerHTML = `<div class="error-message">${errorMsg}</div>`;
         }
     } else {
-        alert(message);
+        alert(errorMsg);
     }
 }
 
 // Show success message
 function showSuccess(message) {
-    alert(message);
+    const successMsg = message?.message || message?.toString?.() || String(message);
+    alert(successMsg);
 }
 
 // Logout function

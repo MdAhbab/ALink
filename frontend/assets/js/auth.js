@@ -22,7 +22,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     showError(res.detail);
                 }
             } catch (err) {
-                showError("Login failed. Please check your credentials.");
+                const errorMsg = err.message || "Login failed. Please check your credentials.";
+                showError(errorMsg);
             } finally {
                 submitBtn.textContent = originalText;
                 submitBtn.disabled = false;
@@ -47,7 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     high_school_2: document.getElementById('signup-hs2')?.value || null,
                     major: document.getElementById('signup-major')?.value || null,
                     grad_year: document.getElementById('signup-gradyear')?.value ?
-                              parseInt(document.getElementById('signup-gradyear').value) : null,
+                        parseInt(document.getElementById('signup-gradyear').value) : null,
                     industry: document.getElementById('signup-industry')?.value || null,
                     company: document.getElementById('signup-company')?.value || null,
                     bio: null
@@ -77,7 +78,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     showError(res.detail);
                 }
             } catch (err) {
-                showError("Signup failed. Please try again.");
+                const errorMsg = err.message || "Signup failed. Please try again.";
+                showError(errorMsg);
             } finally {
                 submitBtn.textContent = originalText;
                 submitBtn.disabled = false;
@@ -103,6 +105,14 @@ function showSignup() {
 }
 
 function showError(message) {
+    // Properly convert error objects to strings
+    let errorMsg = message;
+    if (typeof message === 'object' && message !== null) {
+        errorMsg = message.message || message.detail || JSON.stringify(message);
+    } else {
+        errorMsg = String(message);
+    }
+
     // Create or update error notification
     let errorDiv = document.getElementById('auth-error');
     if (!errorDiv) {
@@ -122,7 +132,7 @@ function showError(message) {
         `;
         document.body.appendChild(errorDiv);
     }
-    errorDiv.textContent = message;
+    errorDiv.textContent = errorMsg;
     errorDiv.style.display = 'block';
 
     setTimeout(() => {
@@ -131,6 +141,14 @@ function showError(message) {
 }
 
 function showSuccess(message) {
+    // Properly convert message to string
+    let successMsg = message;
+    if (typeof message === 'object' && message !== null) {
+        successMsg = message.message || message.detail || JSON.stringify(message);
+    } else {
+        successMsg = String(message);
+    }
+
     let successDiv = document.getElementById('auth-success');
     if (!successDiv) {
         successDiv = document.createElement('div');
@@ -149,7 +167,7 @@ function showSuccess(message) {
         `;
         document.body.appendChild(successDiv);
     }
-    successDiv.textContent = message;
+    successDiv.textContent = successMsg;
     successDiv.style.display = 'block';
 
     setTimeout(() => {

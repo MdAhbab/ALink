@@ -7,7 +7,7 @@ from app.models.user import User, UserRole
 from app.models.profile import Profile
 from app.models.activity import Connection, ConsultationBooking, ReferralRequest, ReferralRecipient, JobPost
 from app.schemas.user_schema import (
-    ProfileOut, ProfileUpdate, ConnectionOut, BookingOut, BookingUpdate,
+    ProfileOut, ProfileUpdate, ConnectionCreate, ConnectionOut, BookingOut, BookingUpdate,
     ReferralOut, JobPostCreate, JobPostOut, UserOut, AlumniSchedule
 )
 
@@ -47,6 +47,35 @@ async def update_profile(
     db.commit()
     db.refresh(profile)
     return profile
+
+
+@router.post("/connections", response_model=ConnectionOut)
+async def send_connection_request(
+    connection: ConnectionCreate,
+    current_user: User = Depends(require_alumni),
+    db: Session = Depends(get_db)
+):
+    receiver = db.query(User).filter(User.id == connection.receiver_id).first()
+    if not receiver:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    existing = db.query(Connection).filter(
+        ((Connection.requester_id == current_user.id) & (Connection.receiver_id == connection.receiver_id)) |
+        ((Connection.requester_id == connection.receiver_id) & (Connection.receiver_id == current_user.id))
+    ).first()
+
+    if existing:
+        raise HTTPException(status_code=400, detail="Connection already exists or pending")
+
+    new_connection = Connection(
+        requester_id=current_user.id,
+        receiver_id=connection.receiver_id,
+        status="pending"
+    )
+    db.add(new_connection)
+    db.commit()
+    db.refresh(new_connection)
+    return new_connection
 
 
 @router.get("/connections", response_model=List[ConnectionOut])
