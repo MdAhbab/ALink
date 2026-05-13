@@ -1,0 +1,451 @@
+import * as React from "react";
+import { motion, AnimatePresence, LayoutGroup } from "motion/react";
+import {
+  MessageSquare, Pin, PinOff, Search, Send, Sparkles, X, Phone, Video, ChevronLeft,
+  Smile, Paperclip, Bot, Users as UsersIcon, Filter,
+} from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
+import { Badge } from "../ui/badge";
+import { initialThreads, aiSuggestions, aiReply, type ChatThread, type ChatMessage } from "../../lib/chat";
+
+const spring = { type: "spring", stiffness: 260, damping: 28, mass: 0.7 } as const;
+
+type FilterKey = "all" | "pinned" | "ai";
+
+export function ChatDock() {
+  const [open, setOpen] = React.useState(false);
+  const [threads, setThreads] = React.useState<ChatThread[]>(initialThreads);
+  const [activeId, setActiveId] = React.useState<string | null>(null);
+  const [filter, setFilter] = React.useState<FilterKey>("all");
+  const [query, setQuery] = React.useState("");
+
+  const totalUnread = threads.reduce((n, t) => n + (t.unread || 0), 0);
+
+  const visible = React.useMemo(() => {
+    let list = threads.slice().sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned));
+    if (filter === "pinned") list = list.filter((t) => t.pinned);
+    if (filter === "ai") list = list.filter((t) => t.kind === "ai");
+    if (query.trim()) {
+      const q = query.toLowerCase();
+      list = list.filter((t) => t.title.toLowerCase().includes(q) || t.preview.toLowerCase().includes(q));
+    }
+    return list;
+  }, [threads, filter, query]);
+
+  const active = activeId ? threads.find((t) => t.id === activeId) || null : null;
+
+  const togglePin = (id: string) =>
+    setThreads((ts) => ts.map((t) => (t.id === id ? { ...t, pinned: !t.pinned } : t)));
+
+  const openThread = (id: string) => {
+    setActiveId(id);
+    setThreads((ts) => ts.map((t) => (t.id === id ? { ...t, unread: 0 } : t)));
+  };
+
+  const sendMessage = (id: string, text: string) => {
+    if (!text.trim()) return;
+    const now = new Date();
+    const at = `${now.getHours()}:${String(now.getMinutes()).padStart(2, "0")}`;
+    const myMsg: ChatMessage = { id: `m-${Date.now()}`, fromMe: true, text, at, status: "sent" };
+
+    setThreads((ts) =>
+      ts.map((t) => (t.id === id ? { ...t, messages: [...t.messages, myMsg], preview: text, lastAt: "now" } : t))
+    );
+
+    if (id === "ai") {
+      setTimeout(() => {
+        const reply: ChatMessage = { id: `m-${Date.now()}-ai`, fromMe: false, text: aiReply(text), at, status: "delivered" };
+        setThreads((ts) =>
+          ts.map((t) => (t.id === id ? { ...t, messages: [...t.messages, reply], preview: reply.text, lastAt: "now" } : t))
+        );
+      }, 700);
+    } else {
+      // simulate read receipt
+      setTimeout(() => {
+        setThreads((ts) =>
+          ts.map((t) =>
+            t.id === id
+              ? { ...t, messages: t.messages.map((m) => (m.id === myMsg.id ? { ...m, status: "read" } : m)) }
+              : t
+          )
+        );
+      }, 1400);
+    }
+  };
+
+  return (
+    <LayoutGroup id="alink-chat-dock">
+      <div className="fixed bottom-4 right-4 z-50 pointer-events-none">
+        <div className="relative pointer-events-auto">
+          <AnimatePresence initial={false} mode="popLayout">
+            {!open && (
+              <motion.button
+                key="pill"
+                layoutId="chat-shell"
+                onClick={() => setOpen(true)}
+                initial={{ opacity: 0, y: 12, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 12, scale: 0.96 }}
+                transition={spring}
+                whileHover={{ y: -2 }}
+                whileTap={{ scale: 0.97 }}
+                className="glass rounded-full pl-2 pr-4 py-2 flex items-center gap-2 shadow-[0_10px_30px_-12px_rgba(0,0,0,0.25)] border border-white/30 dark:border-white/10"
+                aria-label="Open chats"
+              >
+                <span className="grid place-items-center size-9 rounded-full brand-gradient text-white">
+                  <MessageSquare className="size-4" />
+                </span>
+                <span className="text-sm pr-1">Messages</span>
+                {totalUnread > 0 && (
+                  <Badge className="brand-gradient text-white border-0 rounded-full px-2 h-5 min-w-5 text-[10px]">
+                    {totalUnread}
+                  </Badge>
+                )}
+              </motion.button>
+            )}
+
+            {open && (
+              <motion.div
+                key="panel"
+                layoutId="chat-shell"
+                initial={{ opacity: 0, y: 12, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 12, scale: 0.96 }}
+                transition={spring}
+                className="glass rounded-3xl overflow-hidden border border-white/30 dark:border-white/10 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.35)] flex flex-col"
+                style={{ width: 400, height: 600, maxWidth: "calc(100vw - 24px)", maxHeight: "calc(100vh - 88px)" }}
+              >
+                <AnimatePresence mode="wait" initial={false}>
+                  {!active ? (
+                    <motion.div
+                      key="list"
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -20 }}
+                      transition={spring}
+                      className="flex-1 flex flex-col min-h-0"
+                    >
+                      <DockHeader onClose={() => setOpen(false)} />
+                      <div className="px-3 py-2 border-b border-border/60">
+                        <div className="flex items-center gap-2 h-9 px-3 rounded-xl bg-card/70 border border-border">
+                          <Search className="size-3.5 text-muted-foreground" />
+                          <input
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                            placeholder="Search messages…"
+                            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                          />
+                        </div>
+                        <div className="mt-2 flex items-center gap-1">
+                          {([
+                            { k: "all" as const, label: "All", icon: Filter },
+                            { k: "pinned" as const, label: "Pinned", icon: Pin },
+                            { k: "ai" as const, label: "AI", icon: Bot },
+                          ]).map((f) => (
+                            <button
+                              key={f.k}
+                              onClick={() => setFilter(f.k)}
+                              className={`relative inline-flex items-center gap-1.5 px-2.5 h-7 rounded-full text-[11px] transition ${
+                                filter === f.k ? "text-white" : "text-muted-foreground hover:text-foreground"
+                              }`}
+                            >
+                              {filter === f.k && (
+                                <motion.span
+                                  layoutId="chatFilterPill"
+                                  className="absolute inset-0 rounded-full brand-gradient -z-0"
+                                  transition={spring}
+                                />
+                              )}
+                              <f.icon className="size-3 relative z-10" />
+                              <span className="relative z-10">{f.label}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="flex-1 overflow-y-auto scrollbar-thin">
+                        <LayoutGroup id="threads">
+                          {visible.length === 0 ? (
+                            <EmptyState />
+                          ) : (
+                            visible.map((t) => (
+                              <ThreadRow
+                                key={t.id}
+                                thread={t}
+                                onOpen={() => openThread(t.id)}
+                                onTogglePin={() => togglePin(t.id)}
+                              />
+                            ))
+                          )}
+                        </LayoutGroup>
+                      </div>
+
+                      <div className="px-3 py-2 border-t border-border/60 text-[10px] text-muted-foreground flex items-center justify-between">
+                        <span className="inline-flex items-center gap-1.5"><Sparkles className="size-3 text-[var(--brand-500)]" /> Liquid messaging</span>
+                        <span>{threads.length} conversations</span>
+                      </div>
+                    </motion.div>
+                  ) : (
+                    <ThreadView
+                      key="thread"
+                      thread={active}
+                      onBack={() => setActiveId(null)}
+                      onTogglePin={() => togglePin(active.id)}
+                      onSend={(text) => sendMessage(active.id, text)}
+                      onClose={() => setOpen(false)}
+                    />
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
+    </LayoutGroup>
+  );
+}
+
+function DockHeader({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="flex items-center gap-3 px-4 h-14 border-b border-border/60">
+      <span className="grid place-items-center size-8 rounded-full brand-gradient text-white">
+        <MessageSquare className="size-4" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="text-sm">Messages</div>
+        <div className="text-[11px] text-muted-foreground">AI + people + groups</div>
+      </div>
+      <button onClick={onClose} aria-label="Close" className="size-8 grid place-items-center rounded-full hover:bg-muted">
+        <X className="size-4" />
+      </button>
+    </div>
+  );
+}
+
+function EmptyState() {
+  return (
+    <div className="h-full grid place-items-center text-center p-6">
+      <div>
+        <div className="mx-auto size-12 rounded-2xl bg-muted grid place-items-center mb-3">
+          <MessageSquare className="size-5 text-muted-foreground" />
+        </div>
+        <p className="text-sm">No conversations</p>
+        <p className="text-xs text-muted-foreground mt-1">Try a different filter or search.</p>
+      </div>
+    </div>
+  );
+}
+
+function ThreadRow({ thread, onOpen, onTogglePin }: { thread: ChatThread; onOpen: () => void; onTogglePin: () => void }) {
+  return (
+    <motion.button
+      layout
+      onClick={onOpen}
+      whileHover={{ x: 2 }}
+      transition={spring}
+      className="w-full text-left px-3 py-2.5 flex items-start gap-3 hover:bg-muted/40 border-b border-border/40 last:border-0"
+    >
+      <div className="relative shrink-0">
+        {thread.kind === "ai" ? (
+          <span className="grid place-items-center size-10 rounded-full brand-gradient text-white">
+            <Bot className="size-4" />
+          </span>
+        ) : thread.kind === "group" ? (
+          <span className="grid place-items-center size-10 rounded-full bg-[var(--peach)]/30 text-[var(--peach)]">
+            <UsersIcon className="size-4" />
+          </span>
+        ) : (
+          <Avatar className="size-10">
+            <AvatarImage src={thread.avatar} alt={thread.title} />
+            <AvatarFallback>{thread.title.slice(0, 2)}</AvatarFallback>
+          </Avatar>
+        )}
+        {thread.online && (
+          <span className="absolute -bottom-0.5 -right-0.5 size-3 rounded-full bg-[var(--mint)] ring-2 ring-card" />
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5">
+          <span className="text-sm truncate">{thread.title}</span>
+          {thread.pinned && <Pin className="size-3 text-[var(--brand-500)]" />}
+          <span className="ml-auto text-[10px] text-muted-foreground">{thread.lastAt}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <p className="text-xs text-muted-foreground truncate flex-1">{thread.preview}</p>
+          {thread.unread ? (
+            <Badge className="brand-gradient text-white border-0 rounded-full px-1.5 min-w-5 h-5 text-[10px]">{thread.unread}</Badge>
+          ) : null}
+        </div>
+      </div>
+      <span
+        onClick={(e) => { e.stopPropagation(); onTogglePin(); }}
+        className="size-7 grid place-items-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted shrink-0 cursor-pointer"
+        aria-label={thread.pinned ? "Unpin" : "Pin"}
+      >
+        {thread.pinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
+      </span>
+    </motion.button>
+  );
+}
+
+function ThreadView({
+  thread, onBack, onTogglePin, onSend, onClose,
+}: {
+  thread: ChatThread;
+  onBack: () => void;
+  onTogglePin: () => void;
+  onSend: (text: string) => void;
+  onClose: () => void;
+}) {
+  const [text, setText] = React.useState("");
+  const scrollRef = React.useRef<HTMLDivElement | null>(null);
+
+  React.useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+  }, [thread.messages.length]);
+
+  const submit = () => {
+    if (!text.trim()) return;
+    onSend(text);
+    setText("");
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: 24 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: 24 }}
+      transition={spring}
+      className="flex-1 flex flex-col min-h-0"
+    >
+      <div className="flex items-center gap-2 px-3 h-14 border-b border-border/60">
+        <button onClick={onBack} className="size-8 grid place-items-center rounded-full hover:bg-muted" aria-label="Back">
+          <ChevronLeft className="size-4" />
+        </button>
+        <div className="relative shrink-0">
+          {thread.kind === "ai" ? (
+            <span className="grid place-items-center size-9 rounded-full brand-gradient text-white">
+              <Bot className="size-4" />
+            </span>
+          ) : thread.kind === "group" ? (
+            <span className="grid place-items-center size-9 rounded-full bg-[var(--peach)]/30 text-[var(--peach)]">
+              <UsersIcon className="size-4" />
+            </span>
+          ) : (
+            <Avatar className="size-9">
+              <AvatarImage src={thread.avatar} alt={thread.title} />
+              <AvatarFallback>{thread.title.slice(0, 2)}</AvatarFallback>
+            </Avatar>
+          )}
+          {thread.online && <span className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full bg-[var(--mint)] ring-2 ring-card" />}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-sm truncate">{thread.title}</div>
+          <div className="text-[11px] text-muted-foreground truncate">
+            {thread.online ? "Active now" : thread.subtitle}
+          </div>
+        </div>
+        <button onClick={onTogglePin} className="size-8 grid place-items-center rounded-full hover:bg-muted text-muted-foreground" aria-label={thread.pinned ? "Unpin" : "Pin"}>
+          {thread.pinned ? <PinOff className="size-4" /> : <Pin className="size-4" />}
+        </button>
+        {thread.kind === "person" && (
+          <>
+            <button className="size-8 grid place-items-center rounded-full hover:bg-muted text-muted-foreground" aria-label="Call">
+              <Phone className="size-4" />
+            </button>
+            <button className="size-8 grid place-items-center rounded-full hover:bg-muted text-muted-foreground" aria-label="Video">
+              <Video className="size-4" />
+            </button>
+          </>
+        )}
+        <button onClick={onClose} className="size-8 grid place-items-center rounded-full hover:bg-muted" aria-label="Close">
+          <X className="size-4" />
+        </button>
+      </div>
+
+      <div ref={scrollRef} className="flex-1 overflow-y-auto scrollbar-thin p-3 space-y-2">
+        <AnimatePresence initial={false}>
+          {thread.messages.map((m) => (
+            <Bubble key={m.id} m={m} isAI={thread.kind === "ai"} />
+          ))}
+        </AnimatePresence>
+        {thread.kind === "ai" && (
+          <div className="pt-2">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">Suggestions</div>
+            <div className="flex flex-wrap gap-1.5">
+              {aiSuggestions.map((s) => (
+                <motion.button
+                  key={s}
+                  whileHover={{ y: -1 }}
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => onSend(s)}
+                  className="text-[11px] px-2.5 py-1.5 rounded-full bg-card border border-border hover:border-[var(--brand-500)] hover:text-[var(--brand-500)]"
+                >
+                  {s}
+                </motion.button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="border-t border-border/60 p-2 flex items-end gap-1.5">
+        <button className="size-9 grid place-items-center rounded-full hover:bg-muted text-muted-foreground" aria-label="Attach">
+          <Paperclip className="size-4" />
+        </button>
+        <button className="size-9 grid place-items-center rounded-full hover:bg-muted text-muted-foreground" aria-label="Emoji">
+          <Smile className="size-4" />
+        </button>
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); }
+          }}
+          rows={1}
+          placeholder={thread.kind === "ai" ? "Ask ALink AI…" : "Message"}
+          className="flex-1 resize-none rounded-2xl bg-card border border-border px-3 py-2 text-sm outline-none focus:border-[var(--brand-500)] max-h-24"
+        />
+        <motion.button
+          whileHover={{ scale: 1.06 }}
+          whileTap={{ scale: 0.94 }}
+          onClick={submit}
+          disabled={!text.trim()}
+          className={`size-9 grid place-items-center rounded-full text-white transition ${text.trim() ? "brand-gradient" : "bg-muted text-muted-foreground"}`}
+          aria-label="Send"
+        >
+          <Send className="size-4" />
+        </motion.button>
+      </div>
+    </motion.div>
+  );
+}
+
+function Bubble({ m, isAI }: { m: ChatMessage; isAI: boolean }) {
+  const mine = m.fromMe;
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 6, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={spring}
+      className={`flex ${mine ? "justify-end" : "justify-start"}`}
+    >
+      <div
+        className={`max-w-[80%] px-3 py-2 text-sm rounded-2xl whitespace-pre-line ${
+          mine
+            ? "brand-gradient text-white rounded-br-sm"
+            : isAI
+            ? "bg-card border border-border rounded-bl-sm"
+            : "bg-muted text-foreground rounded-bl-sm"
+        }`}
+      >
+        {m.text}
+        <div className={`mt-1 text-[10px] ${mine ? "text-white/70" : "text-muted-foreground"} flex items-center gap-1 justify-end`}>
+          <span>{m.at}</span>
+          {mine && m.status && <span className="capitalize">· {m.status}</span>}
+        </div>
+      </div>
+    </motion.div>
+  );
+}
