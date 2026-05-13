@@ -1,4 +1,9 @@
-from app.controllers.auth import router as auth_router
-from app.controllers.student import router as student_router
-from app.controllers.alumni import router as alumni_router
-from app.controllers.admin import router as admin_router
+"""Controller registry.
+
+The existing FastAPI routers are the controller layer in the MVC layout.
+"""
+
+from ..routers import ALL_ROUTERS
+
+ALL_CONTROLLERS = ALL_ROUTERS
+

@@ -1,309 +1,208 @@
-# Product Requirement Document: ALink
+<p align="center">
+  <img src="https://img.shields.io/badge/ALink-Alumni%20%C3%97%20Student%20Network-7C5CFF?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white" />
+  <img src="https://img.shields.io/badge/React-61DAFB?style=for-the-badge&logo=react&logoColor=black" />
+  <img src="https://img.shields.io/badge/SQLite-003B57?style=for-the-badge&logo=sqlite&logoColor=white" />
+  <img src="https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white" />
+</p>
 
-**Project Title:** ALink – Alumni-Student Connection Platform  
-**Target Users:** Students, Alumni, and System Administrators
+# 🔗 ALink — Alumni-to-Student Career Network
 
----
-
-## 1. Technical Architecture & Design
-
-### 1.1 Technology Stack
-
-- **Frontend (Client):** HTML5, CSS3, Vanilla JavaScript.
-- **Backend (Server):** FastAPI (Python), implementing a RESTful API.
-- **Database:** SQLite3.
-- **Architecture:** MVC (Model-View-Controller) pattern, designed as a single microservice with a recognisable directory structure.
-
-### 1.2 UI/UX Design Specifications
-
-- **Design Philosophy:** Minimalist, low memory load for the user.
-- **Fonts:** Inter, Roboto.
-- **Colour Palette:** Deep Navy Blue, Crisp White, Gold, Teal, and Slate Grey.
-- **System Reliability:** The platform must be reliable and synchronous in its operations.
+> **ALink** is a full-stack networking platform that bridges the gap between alumni and students.  
+> Students discover alumni mentors, request warm referrals, book career-guidance sessions, engage with job posts, and grow through community-driven activity — all in one place.
 
 ---
 
-## 2. Core Functional Requirements
+## ✨ Key Features
 
-### 2.1 Homepage & Onboarding
+### 🎓 For Students
+- **Alumni Discovery** — search and filter alumni by role, industry, university, and skills
+- **Connection Requests** — send warm-intro requests with personal messages
+- **Warm Referrals** — request referrals to top companies with resume uploads
+- **Mentorship Booking** — schedule 1-on-1 sessions with alumni mentors
+- **Job Board** — browse, like, and comment on opportunities posted by alumni
+- **Verification** — submit ID cards to verify your student identity
+- **Career Goals** — track your progress toward internship and networking milestones
+- **Achievements** — earn badges for networking activity (Common → Legendary)
 
-- **Layout:** The landing page features a single background image, a footer, and a transparent header containing the logo, name, and a one-line description.
-- **Split View:** 2/3rds of the page is dedicated to Service, About, and Contact info; 1/3rd contains the Login/Signup forms.
-- **Registration:** During signup, users can add up to two Universities and two High Schools/Colleges to establish their alumni status.
+### 🏢 For Alumni
+- **Job Posting** — share opportunities at your company with the student community
+- **Mentorship Programs** — create structured mentoring tracks with limited spots
+- **Referral Management** — review and forward referral requests
+- **Success Stories** — share your career journey to inspire students
 
-### 2.2 User Profiles & Graduation Logic
+### 🛡️ For Admins
+- **Dashboard Analytics** — real-time user, booking, referral, and verification stats
+- **Verification Queue** — approve or reject student identity verification requests
+- **Job Moderation** — approve, flag, or manage all job postings
+- **User Management** — view, filter, and manage all platform users
 
-- **Profiles:** Both students and alumni can edit profiles (Name, Roll/ID, University, School/College, and other relevant educational info).
-- **Automatic Transition:** When a student updates their graduation status, they are automatically reclassified as Alumni for that institution. This transition unlocks the "Finder" tool in their Connections page.
-
-### 2.3 Verification System
-
-- **Process:** Unverified users must submit ID cards via a Verification page in Settings. The system generates an automatic application timestamp.
-- **Admin Review:** Admins approve or decline requests with feedback. Declined users can resubmit with additional text. Verified users no longer see this page.
-
-### 2.4 Networking & Connections
-
-- **Connection Rule:** Students must establish a connection with an Alumnus before they can request referrals or consultations. Connections can be initiated by either party.
-- **Alumni Directory:** A searchable, filterable, and sortable list of all alumni from the student's university. Filters include Field/Major, Industry, Graduation Year, and Company.
-- **Connections Page:** \* **Students:** Sections for "Connected" and "Requests."
-  - **Alumni:** Sections for "Connected," "Requests," and "Finder" (to locate other students or alumni).
-
----
-
-## 3. Mentorship & Professional Services
-
-### 3.1 Mentorship & Consultations
-
-- **Booking:** Students can request mentor consultations via the Alumni row in the directory/connections page.
-- **Management:** Alumni can accept, decline, or reschedule requests. Meeting links are included directly in the booking form.
-- **Availability:** Alumni set their "active state" and free hours via a scheduler in Settings for students to see during booking.
-- **Calendar:** A dynamic calendar for Alumni to manage consultations, referrals, and events. Updates are synced across both Student and Alumni views.
-
-### 3.2 Job Referrals
-
-- **Referral Form:** Includes a mandatory 200-word pitch (written in English) and a resume upload feature.
-- **Supported Formats:** .jpg, .jpeg, .png, .rtf, .txt, .pdf, .docx.
-- **Multi-Send:** Students have the option to send a single referral request to multiple Alumni simultaneously.
-
-### 3.3 Community & Job Postings
-
-- **Eligibility:** Alumni who are currently job holders or pursuing Masters/PhD/Postdoc roles can create job postings.
-- **Content:** Posts can include images, text, and links.
-- **Engagement:** All users can view, like, comment, reply, and visit external links from these posts.
+### 💬 Shared Features
+- **Real-time Chat** — DMs, group threads, and an AI assistant
+- **Events** — RSVP to panels, mixers, workshops, and career fairs
+- **Notifications** — stay informed about connections, bookings, and referrals
+- **Settings** — email preferences, privacy toggles, theme customization
+- **File Uploads** — upload ID cards, resumes, and avatars directly
 
 ---
 
-## 4. Administrative Controls
-
-### 4.1 Admin Dashboard
-
-- **Access:** Secure login via pre-set admin credentials.
-- **Overview:** Real-time stats on pending bookings, connection requests, upcoming sessions, and referral requests.
-- **User Management:** Ability to delete users and manage the verification queue.
-
-### 4.2 System Monitoring
-
-- **Logs:** Access to all system logs, including login status, active sessions, actions, and request histories.
-- **Referral Review:** Admins can preview student pitches and attached documents in the referral section.
-
----
-
-## 5. Database Schema (SQLAlchemy Models)
-
-This schema covers all 22 points from your notes, including the multi-alumni referral logic and the verification system.
-
-```python
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, Text, Enum
-from sqlalchemy.orm import relationship, declarative_base
-from datetime import datetime
-import enum
-
-Base = declarative_base()
-
-class UserRole(enum.Enum):
-    STUDENT = "student"
-    ALUMNI = "alumni"
-    ADMIN = "admin"
-
-class VerificationStatus(enum.Enum):
-    UNVERIFIED = "unverified"
-    PENDING = "pending"
-    VERIFIED = "verified"
-    DECLINED = "declined"
-
-class User(Base):
-    __tablename__ = "users"
-    id = Column(Integer, primary_key=True, index=True)
-    email = Column(String, unique=True, index=True)
-    hashed_password = Column(String)
-    role = Column(Enum(UserRole), default=UserRole.STUDENT)
-    is_verified = Column(Enum(VerificationStatus), default=VerificationStatus.UNVERIFIED)
-
-    profile = relationship("Profile", back_populates="user", uselist=False)
-    verification = relationship("VerificationRequest", back_populates="user", uselist=False)
-
-class Profile(Base):
-    __tablename__ = "profiles"
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"))
-    name = Column(String)
-    roll_id = Column(String)
-    university_1 = Column(String)
-    university_2 = Column(String, nullable=True)
-    high_school_1 = Column(String)
-    high_school_2 = Column(String, nullable=True)
-    major = Column(String)
-    industry = Column(String, nullable=True)
-    company = Column(String, nullable=True)
-    grad_year = Column(Integer, nullable=True)
-    bio = Column(Text, nullable=True)
-
-    user = relationship("User", back_populates="profile")
-
-class Connection(Base):
-    __tablename__ = "connections"
-    id = Column(Integer, primary_key=True)
-    requester_id = Column(Integer, ForeignKey("users.id"))
-    receiver_id = Column(Integer, ForeignKey("users.id"))
-    status = Column(String, default="pending") # pending, accepted
-
-class ConsultationBooking(Base):
-    __tablename__ = "bookings"
-    id = Column(Integer, primary_key=True)
-    student_id = Column(Integer, ForeignKey("users.id"))
-    alumni_id = Column(Integer, ForeignKey("users.id"))
-    scheduled_time = Column(DateTime)
-    meeting_link = Column(String)
-    status = Column(String, default="requested") # requested, accepted, declined, rescheduled
-
-class ReferralRequest(Base):
-    __tablename__ = "referral_requests"
-    id = Column(Integer, primary_key=True)
-    student_id = Column(Integer, ForeignKey("users.id"))
-    pitch = Column(String(200)) # 200 word limit constraint
-    resume_link = Column(String)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-class ReferralRecipient(Base):
-    """Handles sending one referral to multiple alumni"""
-    __tablename__ = "referral_recipients"
-    id = Column(Integer, primary_key=True)
-    request_id = Column(Integer, ForeignKey("referral_requests.id"))
-    alumni_id = Column(Integer, ForeignKey("users.id"))
-    status = Column(String, default="pending")
-
-class JobPost(Base):
-    __tablename__ = "job_posts"
-    id = Column(Integer, primary_key=True)
-    author_id = Column(Integer, ForeignKey("users.id"))
-    image_url = Column(String, nullable=True)
-    content = Column(Text)
-    link = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-class VerificationRequest(Base):
-    __tablename__ = "verification_requests"
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"))
-    id_card_url = Column(String)
-    admin_feedback = Column(Text, nullable=True)
-    timestamp = Column(DateTime, default=datetime.utcnow)
-
-    user = relationship("User", back_populates="verification")
-```
-
-[Image of Entity Relationship Diagram for a social networking database]
-
----
-
-## 6. Directory Architecture (MVC Pattern)
-
-In FastAPI, the "Controller" logic is typically handled by **Routers**, while the "Model" is handled by **SQLAlchemy**. To keep the frontend (Vanilla JS) organised, we’ll separate the static assets into a dedicated folder.
+## 🏗️ Architecture
 
 ```
-ALink/
-├── backend/                # FastAPI (Server-side)
-│   ├── app/
-│   │   ├── controllers/    # API Routers (Handles requests)
-│   │   │   ├── auth.py
-│   │   │   ├── student.py
-│   │   │   ├── alumni.py
-│   │   │   └── admin.py
-│   │   ├── models/         # SQLAlchemy Models (Database)
-│   │   │   ├── user.py
-│   │   │   ├── profile.py
-│   │   │   └── activity.py
-│   │   ├── schemas/        # Pydantic Schemas (Validation)
-│   │   │   ├── user_schema.py
-│   │   │   └── post_schema.py
-│   │   ├── services/       # Business Logic (Calculations/Auth)
-│   │   │   ├── auth_service.py
-│   │   │   └── verification.py
-│   │   ├── database.py     # SQLite connection logic
-│   │   └── main.py         # App entry point & CORS config
-│   ├── uploads/            # Resumes & ID cards storage
-│   ├── .env                # Environment variables
-│   └── requirements.txt
+Frontend & backend/
+├── run.py                  ← One-command setup + launch (backend + frontend)
+├── README.md               ← This file
 │
-└── frontend/               # Vanilla JS & HTML (Client-side)
-    ├── index.html          # Homepage (2/3 and 1/3 split)
-    ├── pages/              # Specific views
-    │   ├── dashboard.html
-    │   ├── profile.html
-    │   ├── connections.html
-    │   └── admin.html
-    ├── assets/
-    │   ├── css/
-    │   │   └── styles.css  # Deep Navy, Teal, Gold theme
-    │   ├── js/
-    │   │   ├── api.js      # Global fetch() wrapper for the backend
-    │   │   ├── auth.js     # Login/Signup logic
-    │   │   └── main.js     # DOM manipulation & UI logic
-    │   └── img/            # Brand logos & background image
-```
-
-## 7. CORS Configuration
-
-Because the frontend and backend will likely run on different ports (e.g., Frontend on Live Server and Backend on port 8000), you must enable CORS (Cross-Origin Resource Sharing) in your main.py.
-
-### backend/app/main.py snippet
-
-from fastapi.middleware.cors import CORSMiddleware
-
-```
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"], # In production, replace with your frontend URL
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+├── backend/                ← FastAPI REST API
+│   ├── app/
+│   │   ├── main.py         ← FastAPI app, CORS, lifespan, static mount
+│   │   ├── config.py       ← Pydantic-settings (env-driven)
+│   │   ├── database.py     ← SQLAlchemy engine, session, Base
+│   │   ├── models.py       ← ORM models (User, Job, Chat, etc.)
+│   │   ├── schemas.py      ← Pydantic request/response contracts
+│   │   ├── security.py     ← bcrypt hashing + JWT encode/decode
+│   │   ├── deps.py         ← Auth dependency injection
+│   │   ├── seed.py         ← Demo data seeder
+│   │   └── routers/        ← 18 endpoint modules
+│   ├── uploads/            ← User-uploaded files (auto-created)
+│   ├── alink.db            ← SQLite database (auto-created)
+│   ├── requirements.txt
+│   └── .env.example
+│
+└── frontend/               ← React + Vite + TypeScript
+    ├── src/
+    │   ├── app/
+    │   │   ├── App.tsx
+    │   │   ├── components/
+    │   │   ├── routes/
+    │   │   └── lib/
+    │   └── main.tsx
+    ├── package.json
+    └── vite.config.ts
 ```
 
 ---
 
-## 6. Setup and Run Instructions
+## 🛠️ Tech Stack
+
+| Layer      | Technology                                              |
+| ---------- | ------------------------------------------------------- |
+| Frontend   | React 18, Vite 6, TypeScript, Tailwind CSS 4, Radix UI |
+| Backend    | FastAPI, SQLAlchemy 2, Pydantic v2, python-jose (JWT)   |
+| Database   | **SQLite** (zero-config, file-based)                    |
+| Auth       | bcrypt password hashing + HS256 JWT bearer tokens       |
+| Charts     | Recharts                                                |
+| Animations | Motion (Framer Motion)                                  |
+
+---
+
+## 🗃️ Database — SQLite
+
+ALink uses **SQLite** as its database — no external server required.
+
+| Setting         | Default                     |
+| --------------- | --------------------------- |
+| Connection URL  | `sqlite:///./alink.db`      |
+| File Location   | `backend/alink.db`          |
+| Config File     | `backend/.env`              |
+| Auto-seed       | Yes (on first empty boot)   |
+
+The database is automatically created and seeded with demo data on the first run. To reset:
+
+```bash
+python run.py --reset
+```
+
+---
+
+## 📡 API Endpoints
+
+| Domain          | Endpoints                                                    |
+| --------------- | ------------------------------------------------------------ |
+| **Auth**        | `POST /auth/register`, `POST /auth/login`                    |
+| **Users**       | `GET/PATCH /users/me`, `GET /users`, `GET /users/:id`        |
+| **Connections** | `GET/POST /connections/requests`, accept/decline, remove      |
+| **Bookings**    | CRUD at `/bookings`                                          |
+| **Referrals**   | CRUD at `/referrals`                                         |
+| **Jobs**        | CRUD + like/unlike, comments/replies, engagement stats        |
+| **Events**      | `GET /events`, RSVP/cancel with capacity checks              |
+| **Mentorship**  | `GET /mentorship/programs`, apply                            |
+| **Chat**        | Threads, messages, AI auto-reply, pin/unpin, mark-read       |
+| **Stories**     | `GET /stories`                                               |
+| **Achievements**| `GET /achievements`                                          |
+| **Goals**       | CRUD at `/goals`                                             |
+| **Notifications**| list, mark-read, mark-all-read, clear                       |
+| **Settings**    | `GET/PUT/PATCH /settings/prefs`                              |
+| **Uploads**     | `POST /uploads/id-card`, `/uploads/resume`, `/uploads/avatar`|
+| **Verifications**| request, submit docs, view status (student) + approve/reject (admin) |
+| **Admin**       | stats, user management, job moderation                       |
+
+Full Swagger docs available at `http://127.0.0.1:8000/docs` after starting the backend.
+
+---
+
+## 🔐 Auth Model
+
+- **Registration** → returns JWT + user profile
+- **Login** → returns JWT + user profile
+- **Token format** — HS256 JWT with `sub` (user ID), `role`, `iat`, `exp`
+- **Frontend storage** — `localStorage` under `alink:token`
+- **All API requests** — `Authorization: Bearer <token>` header
+
+---
+
+## 🚀 How to Run
 
 ### Prerequisites
-- Python 3.8+ installed on your system.
 
-### Installation
+- **Python 3.11+** — [python.org](https://www.python.org/downloads/)
+- **Node.js 18+** — [nodejs.org](https://nodejs.org/)
 
-1. **Clone the repository (if applicable)** and navigate to the project root:
-   ```bash
-   cd ALink
-   ```
+### Quick Start
 
-2. **Create a virtual environment:**
-   ```bash
-   python3 -m venv .venv
-   ```
+From the project root (`Frontend & backend/`):
 
-3. **Activate the virtual environment:**
-   - On macOS/Linux:
-     ```bash
-     source .venv/bin/activate
-     ```
-   - On Windows:
-     ```bash
-     .venv\Scripts\activate
-     ```
+```bash
+python run.py
+```
 
-4. **Install the dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
+That's it! The script will automatically:
 
-### Running the Application
+1. ✅ Create `backend/.venv` (Python virtual environment)
+2. ✅ Install/update backend dependencies from `requirements.txt`
+3. ✅ Install/update frontend dependencies from `package-lock.json`
+4. ✅ Create `backend/.env` from template (if missing)
+5. ✅ Start the **backend** (FastAPI + Uvicorn) on `http://127.0.0.1:8000`
+6. ✅ Start the **frontend** (Vite dev server) on `http://127.0.0.1:5173`
+7. ✅ Auto-seed the database with demo data on first boot
 
-This project includes a convenient script to start both the FastAPI backend and the frontend server simultaneously.
+### Demo Accounts
 
-1. Ensure your virtual environment is activated.
-2. Run the startup script from the root directory:
-   ```bash
-   python run.py
-   ```
-3. The servers will start:
-   - Frontend will be available at: `http://127.0.0.1:5500`
-   - Backend API Docs (Swagger UI) at: `http://127.0.0.1:8000/docs`
+| Email                | Password   | Role    |
+| -------------------- | ---------- | ------- |
+| `alex@stanford.edu`  | `password` | Student |
+| `admin@alink.app`    | `password` | Admin   |
+| `maya@stanford.edu`  | `password` | Alumni  |
+| `jordan@mit.edu`     | `password` | Alumni  |
 
-To stop the servers, simply press `Ctrl+C` in your terminal.
+### Custom Ports
+
+```bash
+BACKEND_PORT=9000 FRONTEND_PORT=3000 python run.py
+```
+
+### Reset Database
+
+```bash
+python run.py --reset
+```
+
+### Stop
+
+Press **`Ctrl + C`** to gracefully shut down both services.
+
+---
+
+## 📜 License
+
+This project is for educational and demonstration purposes.

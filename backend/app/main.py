@@ -1,34 +1,46 @@
+from contextlib import asynccontextmanager
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from app.database import engine, Base
-from app.controllers import auth, student, alumni, admin
-from app.models import user, profile, activity
-import os
 
-Base.metadata.create_all(bind=engine)
+from .config import settings
+from .controllers import ALL_CONTROLLERS
+from .database import Base, engine
+from .seed import seed_if_empty
 
-app = FastAPI(title="ALink API", description="Alumni-Student Connection Platform API")
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    Base.metadata.create_all(bind=engine)
+    # Ensure the uploads directory exists
+    Path(settings.upload_dir).mkdir(parents=True, exist_ok=True)
+    seed_if_empty()
+    yield
+
+
+app = FastAPI(title="ALink API", version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origin_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Mount uploads directory for file serving
-uploads_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads")
-if os.path.exists(uploads_dir):
-    app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
 
-app.include_router(auth.router, prefix="/auth", tags=["Authentication"])
-app.include_router(student.router, prefix="/student", tags=["Student"])
-app.include_router(alumni.router, prefix="/alumni", tags=["Alumni"])
-app.include_router(admin.router, prefix="/admin", tags=["Admin"])
+@app.get("/health", tags=["meta"])
+def health() -> dict:
+    return {"ok": True, "service": "alink-api"}
 
 
-@app.get("/")
-def read_root():
-    return {"message": "Welcome to ALink API", "docs": "/docs"}
+for r in ALL_CONTROLLERS:
+    app.include_router(r)
+
+# Serve uploaded files at /static/<subfolder>/<filename>
+# Using /static to avoid clashing with the /uploads API router prefix.
+_upload_path = Path(settings.upload_dir)
+_upload_path.mkdir(parents=True, exist_ok=True)
+app.mount("/static", StaticFiles(directory=str(_upload_path)), name="static-uploads")
