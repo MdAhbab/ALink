@@ -1,6 +1,6 @@
 import * as React from "react";
 import { motion } from "motion/react";
-import { apiRequest, getAuthToken } from "../lib/api";
+import { apiRequest, apiRequestAll, getAuthToken } from "../lib/api";
 import { Avatar, AvatarImage, AvatarFallback } from "../components/ui/avatar";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
@@ -11,14 +11,24 @@ import { toast } from "sonner";
 export default function Mentorship() {
   const [mentorPrograms, setMentorPrograms] = React.useState<any[]>([]);
   const [people, setPeople] = React.useState<any[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
 
   React.useEffect(() => {
+    const controller = new AbortController();
     const token = getAuthToken();
     if (!token) return;
+    setIsLoading(true);
     Promise.all([
-      apiRequest<any[]>("/mentorship/programs", { token }).then(setMentorPrograms).catch(() => {}),
-      apiRequest<any[]>("/users", { token }).then(setPeople).catch(() => {}),
-    ]);
+      apiRequest<any[]>("/mentorship/programs", { token, signal: controller.signal }).then(setMentorPrograms).catch(() => {}),
+      apiRequestAll<any>("/users", { token, signal: controller.signal }).then(setPeople).catch(() => {}),
+    ])
+      .catch((err: any) => {
+        if (err?.name !== "AbortError") {
+          toast.error("Failed to load mentorship data", { description: err.message });
+        }
+      })
+      .finally(() => setIsLoading(false));
+    return () => controller.abort();
   }, []);
   return (
     <div className="space-y-6">
@@ -30,6 +40,11 @@ export default function Mentorship() {
       </div>
 
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {isLoading && (
+          <div className="md:col-span-2 lg:col-span-3 text-center text-muted-foreground py-12 rounded-2xl border border-dashed border-border">
+            Loading mentorship programs...
+          </div>
+        )}
         {mentorPrograms.map((p, i) => {
           const fillPct = (p.filled / p.spots) * 100;
           return (
@@ -62,13 +77,36 @@ export default function Mentorship() {
                   </div>
                   <div className="mt-5 flex items-center justify-between">
                     <Badge className="rounded-full" variant={p.price === "Free" ? "secondary" : "default"}>{p.price}</Badge>
-                    <Button size="sm" onClick={() => toast.success(`Applied to ${p.title}`)}>Apply</Button>
+                    <Button
+                      size="sm"
+                      onClick={async () => {
+                        try {
+                          await apiRequest(`/mentorship/programs/${p.id}/apply`, {
+                            method: "POST",
+                            token: getAuthToken() || undefined,
+                          });
+                          toast.success(`Applied to ${p.title}`);
+                          setMentorPrograms((current) =>
+                            current.map((x) => x.id === p.id ? { ...x, filled: Math.min(x.spots, (x.filled ?? 0) + 1) } : x)
+                          );
+                        } catch (err: any) {
+                          toast.error("Failed to apply", { description: err.message });
+                        }
+                      }}
+                    >
+                      Apply
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
             </motion.div>
           );
         })}
+        {!isLoading && mentorPrograms.length === 0 && (
+          <div className="md:col-span-2 lg:col-span-3 text-center text-muted-foreground py-12 rounded-2xl border border-dashed border-border">
+            No mentorship programs available.
+          </div>
+        )}
       </div>
 
       {/* Office hours strip */}

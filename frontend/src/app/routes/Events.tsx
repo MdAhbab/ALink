@@ -21,20 +21,28 @@ export default function Events() {
   const [filter, setFilter] = React.useState<string>("all");
   const [events, setEvents] = React.useState<any[]>([]);
   const [open, setOpen] = React.useState(false);
+  const [isLoading, setIsLoading] = React.useState(true);
 
-  const fetchEvents = React.useCallback(async () => {
+  const fetchEvents = React.useCallback(async (signal?: AbortSignal) => {
     const token = getAuthToken();
     if (!token) return;
     try {
-      const data = await apiRequest<any[]>("/events", { token });
+      const data = await apiRequest<any[]>("/events", { token, signal });
       setEvents(data);
     } catch (err: any) {
-      toast.error("Failed to load events", { description: err.message });
+      if (err?.name !== "AbortError") {
+        toast.error("Failed to load events", { description: err.message });
+      }
+    } finally {
+      setIsLoading(false);
     }
   }, []);
 
   React.useEffect(() => {
-    fetchEvents();
+    const controller = new AbortController();
+    setIsLoading(true);
+    fetchEvents(controller.signal);
+    return () => controller.abort();
   }, [fetchEvents]);
 
   const filtered = events.filter(e => filter === "all" || e.kind === filter);
@@ -117,6 +125,9 @@ export default function Events() {
 
         <TabsContent value={filter}>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {isLoading && (
+              <div className="col-span-full py-16 text-center text-muted-foreground">Loading events...</div>
+            )}
             {filtered.length > 0 ? filtered.map((e, i) => (
               <motion.div key={e.id}
                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
@@ -152,7 +163,7 @@ export default function Events() {
                   </CardContent>
                 </Card>
               </motion.div>
-            )) : <div className="col-span-full py-16 text-center text-muted-foreground">No events found.</div>}
+            )) : (!isLoading && <div className="col-span-full py-16 text-center text-muted-foreground">No events found.</div>)}
           </div>
         </TabsContent>
       </Tabs>

@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 Role = Literal["student", "alumni", "admin"]
+PublicRegisterRole = Literal["student", "alumni"]
 BookingStatus = Literal["upcoming", "pending", "completed", "cancelled"]
 ReferralStatus = Literal["submitted", "under_review", "forwarded", "declined"]
 JobStatus = Literal["live", "pending", "flagged"]
@@ -66,6 +67,7 @@ class UserUpdate(BaseModel):
     linkedin: Optional[str] = None
     open_to_mentor: Optional[bool] = Field(default=None, alias="openToMentor")
     institution_email: Optional[EmailStr] = Field(default=None, alias="institutionEmail")
+    prefs: Optional[dict] = None
 
 
 class AvatarUpdate(BaseModel):
@@ -79,7 +81,7 @@ class RegisterIn(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8)
     name: str
-    role: Role = "student"
+    role: PublicRegisterRole = "student"
     institution_email: Optional[EmailStr] = Field(default=None, alias="institutionEmail")
     university: Optional[str] = None
     major: Optional[str] = None
@@ -124,14 +126,20 @@ class BookingIn(BaseModel):
     date: str
     time: str
     duration: int = 30
+    starts_at: Optional[datetime] = Field(default=None, alias="startsAt")
+    timezone: Optional[str] = None
 
 
 class BookingPatch(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     topic: Optional[str] = None
     date: Optional[str] = None
     time: Optional[str] = None
     duration: Optional[int] = None
     status: Optional[BookingStatus] = None
+    starts_at: Optional[datetime] = Field(default=None, alias="startsAt")
+    timezone: Optional[str] = None
 
 
 class BookingOut(ORMBase):
@@ -143,6 +151,8 @@ class BookingOut(ORMBase):
     duration: int
     status: BookingStatus
     meeting_link: Optional[str] = Field(default=None, alias="meetingLink")
+    starts_at_utc: Optional[str] = Field(default=None, alias="startsAt")
+    timezone: Optional[str] = None
 
 
 # ---------- Referrals ------------------------------------------------------ #
@@ -166,6 +176,7 @@ class ReferralPatch(BaseModel):
 
 class ReferralOut(ORMBase):
     id: str
+    owner: Optional[UserPublic] = None
     company: str
     role: str
     pitch: str
@@ -403,6 +414,10 @@ class AdminStatsOut(BaseModel):
     bookings: int
     referrals: int
     verifications: int
+    uptime_seconds: int = Field(alias="uptimeSeconds")
+    active_now: int = Field(alias="activeNow")
+    flagged_jobs: int = Field(alias="flaggedJobs")
+    new_today: int = Field(alias="newToday")
     weekly: list[AdminWeeklyPoint]
 
 

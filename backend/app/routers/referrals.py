@@ -1,7 +1,8 @@
 import uuid
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from ..database import get_db
@@ -15,15 +16,15 @@ router = APIRouter(prefix="/referrals", tags=["referrals"])
 
 @router.get("", response_model=list[ReferralOut])
 def list_referrals(
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
     current: User = Depends(get_current_user),
 ) -> list[Referral]:
-    return (
-        db.query(Referral)
-        .filter(Referral.owner_id == current.id)
-        .order_by(Referral.submitted_at.desc())
-        .all()
-    )
+    qry = db.query(Referral)
+    if current.role != "admin":
+        qry = qry.filter(or_(Referral.owner_id == current.id, Referral.referrer_id == current.id))
+    return qry.order_by(Referral.submitted_at.desc()).offset(offset).limit(limit).all()
 
 
 @router.post("", response_model=ReferralOut, status_code=201)
@@ -59,9 +60,14 @@ def update_referral(
     current: User = Depends(get_current_user),
 ) -> Referral:
     r = db.get(Referral, ref_id)
-    if not r or r.owner_id != current.id:
+    if not r or current.id not in (r.owner_id, r.referrer_id) and current.role != "admin":
         raise HTTPException(404, "Referral not found")
-    for k, v in body.model_dump(exclude_unset=True, by_alias=False).items():
+    data = body.model_dump(exclude_unset=True, by_alias=False)
+    if "status" in data and current.id != r.referrer_id and current.role != "admin":
+        raise HTTPException(403, "Only the referrer or admin can update referral status")
+    if current.id == r.referrer_id and current.role != "admin":
+        data = {k: v for k, v in data.items() if k == "status"}
+    for k, v in data.items():
         setattr(r, k, v)
     db.commit()
     db.refresh(r)

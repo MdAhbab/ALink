@@ -7,19 +7,32 @@ import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent } from "../../components/ui/card";
 import { Switch } from "../../components/ui/switch";
-import { apiRequest, getAuthToken } from "../../lib/api";
+import { apiRequest, apiRequestAll, getAuthToken } from "../../lib/api";
 import { AreaChart, Area, XAxis, ResponsiveContainer, Tooltip, RadialBar, RadialBarChart, PolarAngleAxis } from "recharts";
 import { Award, Calendar, Compass, Heart, Sparkles, TrendingUp, Users, ChevronRight, BellRing, Trophy } from "lucide-react";
 
 const stagger = { hidden: {}, visible: { transition: { staggerChildren: 0.05 } } };
 const item = { hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0, transition: { duration: 0.3 } } };
 
-const impactData = [
-  { w: "W1", hours: 2 }, { w: "W2", hours: 3 }, { w: "W3", hours: 4 },
-  { w: "W4", hours: 3 }, { w: "W5", hours: 5 }, { w: "W6", hours: 7 },
-  { w: "W7", hours: 6 }, { w: "W8", hours: 8 }, { w: "W9", hours: 7 },
-  { w: "W10", hours: 9 }, { w: "W11", hours: 10 }, { w: "W12", hours: 11 },
-];
+function buildImpactData(bookings: any[]) {
+  const now = new Date();
+  const start = new Date(now);
+  start.setDate(start.getDate() - 7 * 11);
+  start.setHours(0, 0, 0, 0);
+
+  const buckets = Array.from({ length: 12 }, (_, i) => ({ w: `W${i + 1}`, hours: 0 }));
+  for (const booking of bookings) {
+    if (booking.status === "cancelled") continue;
+    const date = new Date(`${booking.date}T00:00:00`);
+    if (Number.isNaN(date.getTime()) || date < start || date > now) continue;
+    const dayDiff = Math.floor((date.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+    const bucket = Math.min(11, Math.max(0, Math.floor(dayDiff / 7)));
+    const durationMinutes = Number(booking.duration) || 0;
+    buckets[bucket].hours += durationMinutes / 60;
+  }
+
+  return buckets.map((bucket) => ({ ...bucket, hours: Number(bucket.hours.toFixed(1)) }));
+}
 
 export default function AlumniDashboard() {
   const { user } = useAuth();
@@ -30,27 +43,48 @@ export default function AlumniDashboard() {
   const [bookings, setBookings] = React.useState<any[]>([]);
   const [mentorPrograms, setMentorPrograms] = React.useState<any[]>([]);
   const [alumniLeaderboard, setAlumniLeaderboard] = React.useState<any[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
 
   React.useEffect(() => {
+    const controller = new AbortController();
     const token = getAuthToken();
     if (!token) return;
+    setIsLoading(true);
     Promise.all([
-      apiRequest<any[]>("/connections/requests", { token }).then(setIncomingRequests).catch(() => {}),
-      apiRequest<any[]>("/users", { token }).then((data) => {
+      apiRequest<any[]>("/connections/requests", { token, signal: controller.signal }).then(setIncomingRequests).catch(() => {}),
+      apiRequestAll<any>("/users", { token, signal: controller.signal }).then((data) => {
         setPeople(data);
         setAlumniLeaderboard(data.filter(u => u.role === "alumni").slice(0, 3));
       }).catch(() => {}),
-      apiRequest<any[]>("/connections", { token }).then(setConnections).catch(() => {}),
-      apiRequest<any[]>("/referrals", { token }).then(setReferrals).catch(() => {}),
-      apiRequest<any[]>("/bookings", { token }).then(setBookings).catch(() => {}),
-      apiRequest<any[]>("/mentorship/programs", { token }).then(setMentorPrograms).catch(() => {}),
-    ]);
+      apiRequest<any[]>("/connections", { token, signal: controller.signal }).then(setConnections).catch(() => {}),
+      apiRequestAll<any>("/referrals", { token, signal: controller.signal }).then(setReferrals).catch(() => {}),
+      apiRequestAll<any>("/bookings", { token, signal: controller.signal }).then(setBookings).catch(() => {}),
+      apiRequest<any[]>("/mentorship/programs", { token, signal: controller.signal }).then(setMentorPrograms).catch(() => {}),
+    ]).finally(() => setIsLoading(false));
+    return () => controller.abort();
   }, []);
   const heroRef = React.useRef<HTMLDivElement | null>(null);
   const reduce = useReducedMotion();
   const { scrollYProgress } = useScroll({ target: heroRef, offset: ["start start", "end start"] });
   const shineY = useTransform(scrollYProgress, [0, 1], [0, reduce ? 0 : -40]);
   const shineX = useTransform(scrollYProgress, [0, 1], [0, reduce ? 0 : 25]);
+  const impactData = React.useMemo(() => buildImpactData(bookings), [bookings]);
+  const totalHours = React.useMemo(
+    () => Number((bookings.filter((b) => b.status !== "cancelled").reduce((sum, b) => sum + ((Number(b.duration) || 0) / 60), 0)).toFixed(1)),
+    [bookings]
+  );
+  const yearlyGoal = 50;
+  const yearlyProgress = Math.min(100, Math.round((totalHours / yearlyGoal) * 100));
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="rounded-3xl border border-border bg-card p-8 text-center text-muted-foreground">
+          Loading dashboard...
+        </div>
+      </div>
+    );
+  }
 
   return (
     <motion.div variants={stagger} initial="hidden" animate="visible" className="space-y-6">
@@ -61,7 +95,9 @@ export default function AlumniDashboard() {
           <div>
             <Badge variant="secondary" className="rounded-full bg-white/15 text-white border-white/20"><Heart className="size-3" /> Top 5% mentor this month</Badge>
             <h1 className="font-serif text-4xl md:text-5xl mt-3">Hi {user!.name.split(" ")[0]}, <span className="italic">2 students need your wisdom.</span></h1>
-            <p className="text-white/85 mt-2 max-w-xl">You've given <strong>36 hours</strong> this year. That's 14 students closer to their dream career.</p>
+            <p className="text-white/85 mt-2 max-w-xl">
+              {isLoading ? "Loading your impact..." : <>You've given <strong>{totalHours} hours</strong> this year. {connections.length} mentee{connections.length === 1 ? "" : "s"} in your network.</>}
+            </p>
           </div>
           <div className="flex gap-2 flex-wrap">
             <Link to="/app/connections?tab=requests"><Button className="bg-white text-[#0B0D1F] hover:bg-white/90 gap-2"><BellRing className="size-4" /> Review requests · {incomingRequests.length}</Button></Link>
@@ -74,12 +110,12 @@ export default function AlumniDashboard() {
 
       {/* Impact stats */}
       <motion.div variants={item} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { l: "Mentees", v: connections.length, sub: "Total connections" },
-          { l: "Hours given", v: bookings.length, sub: "Total sessions" },
-          { l: "Referrals made", v: referrals.length, sub: "Total referred" },
-          { l: "Impact score", v: bookings.length * 10, sub: "From mentoring" },
-        ].map(s => (
+          {[
+            { l: "Mentees", v: connections.length, sub: "Total connections" },
+            { l: "Hours given", v: totalHours, sub: "Mentorship hours" },
+            { l: "Referrals made", v: referrals.length, sub: "Total referred" },
+            { l: "Impact score", v: Math.round(totalHours * 10), sub: "From mentoring" },
+          ].map(s => (
           <Card key={s.l}><CardContent className="p-5">
             <div className="text-xs text-muted-foreground">{s.l}</div>
             <div className="font-serif text-3xl mt-1 inline-flex items-center gap-1.5">{s.v}<TrendingUp className="size-3 text-[var(--success,#2BB673)]" /></div>
@@ -118,15 +154,15 @@ export default function AlumniDashboard() {
           <p className="text-sm text-muted-foreground">50 mentorship hours</p>
           <div className="h-56 mt-2">
             <ResponsiveContainer>
-              <RadialBarChart innerRadius="65%" outerRadius="100%" data={[{ name: "hours", value: 72, fill: "var(--brand-500)" }]} startAngle={90} endAngle={-270}>
+              <RadialBarChart innerRadius="65%" outerRadius="100%" data={[{ name: "hours", value: yearlyProgress, fill: "var(--brand-500)" }]} startAngle={90} endAngle={-270}>
                 <PolarAngleAxis type="number" domain={[0, 100]} angleAxisId={0} tick={false} />
                 <RadialBar background dataKey="value" cornerRadius={20} />
               </RadialBarChart>
             </ResponsiveContainer>
           </div>
           <div className="text-center -mt-32 mb-12 relative z-10">
-            <div className="font-serif text-4xl">36<span className="text-muted-foreground text-lg">/50</span></div>
-            <div className="text-xs text-muted-foreground">hours given · 72% there</div>
+            <div className="font-serif text-4xl">{totalHours}<span className="text-muted-foreground text-lg">/{yearlyGoal}</span></div>
+            <div className="text-xs text-muted-foreground">hours given · {yearlyProgress}% there</div>
           </div>
         </motion.div>
       </div>

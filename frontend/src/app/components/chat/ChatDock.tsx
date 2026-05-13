@@ -6,71 +6,75 @@ import {
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { Badge } from "../ui/badge";
-import { initialThreads, aiSuggestions, aiReply, type ChatThread, type ChatMessage } from "../../lib/chat";
+import { aiSuggestions, type ChatThread, type ChatMessage } from "../../lib/chat";
+import { apiRequest, getAuthToken } from "../../lib/api";
+import { useAuth } from "../../lib/auth";
 
 const spring = { type: "spring", stiffness: 260, damping: 28, mass: 0.7 } as const;
 
 type FilterKey = "all" | "pinned" | "ai";
 
 export function ChatDock() {
+  const { user } = useAuth();
   const [open, setOpen] = React.useState(false);
-  const [threads, setThreads] = React.useState<ChatThread[]>(initialThreads);
+  const [threads, setThreads] = React.useState<ChatThread[]>([]);
   const [activeId, setActiveId] = React.useState<string | null>(null);
   const [filter, setFilter] = React.useState<FilterKey>("all");
   const [query, setQuery] = React.useState("");
+  
+  const fetchThreads = React.useCallback(async () => {
+    const token = getAuthToken();
+    if (!token) return;
+    try {
+      const data = await apiRequest<ChatThread[]>("/chat/threads", { token });
+      setThreads(data);
+    } catch {}
+  }, []);
 
-  const totalUnread = threads.reduce((n, t) => n + (t.unread || 0), 0);
+  React.useEffect(() => {
+    fetchThreads();
+  }, [fetchThreads]);
+
+  const totalUnread = threads.reduce((n, t) => n + (t.unreadCount || 0), 0);
 
   const visible = React.useMemo(() => {
     let list = threads.slice().sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned));
     if (filter === "pinned") list = list.filter((t) => t.pinned);
-    if (filter === "ai") list = list.filter((t) => t.kind === "ai");
+    if (filter === "ai") list = list.filter((t) => t.isAI);
     if (query.trim()) {
       const q = query.toLowerCase();
-      list = list.filter((t) => t.title.toLowerCase().includes(q) || t.preview.toLowerCase().includes(q));
+      list = list.filter((t) => 
+        t.title.toLowerCase().includes(q) || 
+        t.lastMessage?.body.toLowerCase().includes(q)
+      );
     }
     return list;
   }, [threads, filter, query]);
 
   const active = activeId ? threads.find((t) => t.id === activeId) || null : null;
 
-  const togglePin = (id: string) =>
-    setThreads((ts) => ts.map((t) => (t.id === id ? { ...t, pinned: !t.pinned } : t)));
-
-  const openThread = (id: string) => {
-    setActiveId(id);
-    setThreads((ts) => ts.map((t) => (t.id === id ? { ...t, unread: 0 } : t)));
+  const togglePin = async (id: string) => {
+    const token = getAuthToken();
+    if (!token) return;
+    try {
+      const updated = await apiRequest<ChatThread>(`/chat/threads/${id}/pin`, { method: "POST", token });
+      setThreads(ts => ts.map(t => t.id === id ? updated : t));
+    } catch {}
   };
 
-  const sendMessage = (id: string, text: string) => {
-    if (!text.trim()) return;
-    const now = new Date();
-    const at = `${now.getHours()}:${String(now.getMinutes()).padStart(2, "0")}`;
-    const myMsg: ChatMessage = { id: `m-${Date.now()}`, fromMe: true, text, at, status: "sent" };
+  const openThread = async (id: string) => {
+    setActiveId(id);
+    const token = getAuthToken();
+    if (!token) return;
+    try {
+      await apiRequest(`/chat/threads/${id}/read`, { method: "POST", token });
+      setThreads(ts => ts.map(t => t.id === id ? { ...t, unreadCount: 0 } : t));
+    } catch {}
+  };
 
-    setThreads((ts) =>
-      ts.map((t) => (t.id === id ? { ...t, messages: [...t.messages, myMsg], preview: text, lastAt: "now" } : t))
-    );
-
-    if (id === "ai") {
-      setTimeout(() => {
-        const reply: ChatMessage = { id: `m-${Date.now()}-ai`, fromMe: false, text: aiReply(text), at, status: "delivered" };
-        setThreads((ts) =>
-          ts.map((t) => (t.id === id ? { ...t, messages: [...t.messages, reply], preview: reply.text, lastAt: "now" } : t))
-        );
-      }, 700);
-    } else {
-      // simulate read receipt
-      setTimeout(() => {
-        setThreads((ts) =>
-          ts.map((t) =>
-            t.id === id
-              ? { ...t, messages: t.messages.map((m) => (m.id === myMsg.id ? { ...m, status: "read" } : m)) }
-              : t
-          )
-        );
-      }, 1400);
-    }
+  const handleCloseActive = () => {
+    setActiveId(null);
+    fetchThreads();
   };
 
   return (
@@ -172,6 +176,7 @@ export function ChatDock() {
                               <ThreadRow
                                 key={t.id}
                                 thread={t}
+                                userId={user?.id}
                                 onOpen={() => openThread(t.id)}
                                 onTogglePin={() => togglePin(t.id)}
                               />
@@ -189,10 +194,10 @@ export function ChatDock() {
                     <ThreadView
                       key="thread"
                       thread={active}
-                      onBack={() => setActiveId(null)}
+                      userId={user?.id}
+                      onBack={handleCloseActive}
                       onTogglePin={() => togglePin(active.id)}
-                      onSend={(text) => sendMessage(active.id, text)}
-                      onClose={() => setOpen(false)}
+                      onClose={() => { handleCloseActive(); setOpen(false); }}
                     />
                   )}
                 </AnimatePresence>
@@ -236,7 +241,15 @@ function EmptyState() {
   );
 }
 
-function ThreadRow({ thread, onOpen, onTogglePin }: { thread: ChatThread; onOpen: () => void; onTogglePin: () => void }) {
+function ThreadRow({ thread, userId, onOpen, onTogglePin }: { thread: ChatThread; userId?: string; onOpen: () => void; onTogglePin: () => void }) {
+  const otherMember = thread.members.find(m => m.id !== userId) || thread.members[0];
+  
+  const avatarUrl = thread.isAI ? "" : thread.isGroup ? "" : otherMember?.avatar;
+  const avatarFallback = thread.title.slice(0, 2);
+
+  const previewText = thread.lastMessage?.body || "No messages yet";
+  const dateStr = thread.lastMessage?.at ? new Date(thread.lastMessage.at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "";
+
   return (
     <motion.button
       layout
@@ -246,34 +259,31 @@ function ThreadRow({ thread, onOpen, onTogglePin }: { thread: ChatThread; onOpen
       className="w-full text-left px-3 py-2.5 flex items-start gap-3 hover:bg-muted/40 border-b border-border/40 last:border-0"
     >
       <div className="relative shrink-0">
-        {thread.kind === "ai" ? (
+        {thread.isAI ? (
           <span className="grid place-items-center size-10 rounded-full brand-gradient text-white">
             <Bot className="size-4" />
           </span>
-        ) : thread.kind === "group" ? (
+        ) : thread.isGroup ? (
           <span className="grid place-items-center size-10 rounded-full bg-[var(--peach)]/30 text-[var(--peach)]">
             <UsersIcon className="size-4" />
           </span>
         ) : (
           <Avatar className="size-10">
-            <AvatarImage src={thread.avatar} alt={thread.title} />
-            <AvatarFallback>{thread.title.slice(0, 2)}</AvatarFallback>
+            <AvatarImage src={avatarUrl} alt={thread.title} />
+            <AvatarFallback>{avatarFallback}</AvatarFallback>
           </Avatar>
-        )}
-        {thread.online && (
-          <span className="absolute -bottom-0.5 -right-0.5 size-3 rounded-full bg-[var(--mint)] ring-2 ring-card" />
         )}
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
           <span className="text-sm truncate">{thread.title}</span>
           {thread.pinned && <Pin className="size-3 text-[var(--brand-500)]" />}
-          <span className="ml-auto text-[10px] text-muted-foreground">{thread.lastAt}</span>
+          <span className="ml-auto text-[10px] text-muted-foreground">{dateStr}</span>
         </div>
         <div className="flex items-center gap-2">
-          <p className="text-xs text-muted-foreground truncate flex-1">{thread.preview}</p>
-          {thread.unread ? (
-            <Badge className="brand-gradient text-white border-0 rounded-full px-1.5 min-w-5 h-5 text-[10px]">{thread.unread}</Badge>
+          <p className="text-xs text-muted-foreground truncate flex-1">{previewText}</p>
+          {thread.unreadCount ? (
+            <Badge className="brand-gradient text-white border-0 rounded-full px-1.5 min-w-5 h-5 text-[10px]">{thread.unreadCount}</Badge>
           ) : null}
         </div>
       </div>
@@ -289,26 +299,68 @@ function ThreadRow({ thread, onOpen, onTogglePin }: { thread: ChatThread; onOpen
 }
 
 function ThreadView({
-  thread, onBack, onTogglePin, onSend, onClose,
+  thread, userId, onBack, onTogglePin, onClose,
 }: {
   thread: ChatThread;
+  userId?: string;
   onBack: () => void;
   onTogglePin: () => void;
-  onSend: (text: string) => void;
   onClose: () => void;
 }) {
   const [text, setText] = React.useState("");
+  const [messages, setMessages] = React.useState<ChatMessage[]>([]);
   const scrollRef = React.useRef<HTMLDivElement | null>(null);
+
+  const fetchMessages = React.useCallback(async () => {
+    const token = getAuthToken();
+    if (!token) return;
+    try {
+      const data = await apiRequest<ChatMessage[]>(`/chat/threads/${thread.id}/messages`, { token });
+      setMessages(data);
+    } catch {}
+  }, [thread.id]);
+
+  React.useEffect(() => {
+    fetchMessages();
+  }, [fetchMessages]);
 
   React.useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [thread.messages.length]);
+  }, [messages.length]);
 
-  const submit = () => {
-    if (!text.trim()) return;
-    onSend(text);
+  const submit = async (overrideText?: string) => {
+    const msg = overrideText || text;
+    if (!msg.trim()) return;
     setText("");
+
+    const token = getAuthToken();
+    if (!token) return;
+    
+    // Optimistic
+    const tempId = `temp-${Date.now()}`;
+    setMessages(prev => [...prev, {
+      id: tempId,
+      threadId: thread.id,
+      senderId: userId,
+      body: msg,
+      isAI: false,
+      read: true,
+      at: new Date().toISOString()
+    }]);
+
+    try {
+      await apiRequest(`/chat/threads/${thread.id}/messages`, {
+        method: "POST",
+        token,
+        body: { body: msg }
+      });
+      // Re-fetch to get AI reply if any, or just confirmed message
+      fetchMessages();
+    } catch {}
   };
+
+  const otherMember = thread.members.find(m => m.id !== userId) || thread.members[0];
+  const avatarUrl = thread.isAI ? "" : thread.isGroup ? "" : otherMember?.avatar;
 
   return (
     <motion.div
@@ -323,32 +375,31 @@ function ThreadView({
           <ChevronLeft className="size-4" />
         </button>
         <div className="relative shrink-0">
-          {thread.kind === "ai" ? (
+          {thread.isAI ? (
             <span className="grid place-items-center size-9 rounded-full brand-gradient text-white">
               <Bot className="size-4" />
             </span>
-          ) : thread.kind === "group" ? (
+          ) : thread.isGroup ? (
             <span className="grid place-items-center size-9 rounded-full bg-[var(--peach)]/30 text-[var(--peach)]">
               <UsersIcon className="size-4" />
             </span>
           ) : (
             <Avatar className="size-9">
-              <AvatarImage src={thread.avatar} alt={thread.title} />
+              <AvatarImage src={avatarUrl} alt={thread.title} />
               <AvatarFallback>{thread.title.slice(0, 2)}</AvatarFallback>
             </Avatar>
           )}
-          {thread.online && <span className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full bg-[var(--mint)] ring-2 ring-card" />}
         </div>
         <div className="min-w-0 flex-1">
           <div className="text-sm truncate">{thread.title}</div>
           <div className="text-[11px] text-muted-foreground truncate">
-            {thread.online ? "Active now" : thread.subtitle}
+            {thread.isAI ? "Your network co-pilot" : otherMember?.title || "Member"}
           </div>
         </div>
         <button onClick={onTogglePin} className="size-8 grid place-items-center rounded-full hover:bg-muted text-muted-foreground" aria-label={thread.pinned ? "Unpin" : "Pin"}>
           {thread.pinned ? <PinOff className="size-4" /> : <Pin className="size-4" />}
         </button>
-        {thread.kind === "person" && (
+        {!thread.isAI && !thread.isGroup && (
           <>
             <button className="size-8 grid place-items-center rounded-full hover:bg-muted text-muted-foreground" aria-label="Call">
               <Phone className="size-4" />
@@ -365,11 +416,11 @@ function ThreadView({
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto scrollbar-thin p-3 space-y-2">
         <AnimatePresence initial={false}>
-          {thread.messages.map((m) => (
-            <Bubble key={m.id} m={m} isAI={thread.kind === "ai"} />
+          {messages.map((m) => (
+            <Bubble key={m.id} m={m} mine={m.senderId === userId} />
           ))}
         </AnimatePresence>
-        {thread.kind === "ai" && (
+        {thread.isAI && (
           <div className="pt-2">
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">Suggestions</div>
             <div className="flex flex-wrap gap-1.5">
@@ -378,7 +429,7 @@ function ThreadView({
                   key={s}
                   whileHover={{ y: -1 }}
                   whileTap={{ scale: 0.97 }}
-                  onClick={() => onSend(s)}
+                  onClick={() => submit(s)}
                   className="text-[11px] px-2.5 py-1.5 rounded-full bg-card border border-border hover:border-[var(--brand-500)] hover:text-[var(--brand-500)]"
                 >
                   {s}
@@ -403,13 +454,13 @@ function ThreadView({
             if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); }
           }}
           rows={1}
-          placeholder={thread.kind === "ai" ? "Ask ALink AI…" : "Message"}
+          placeholder={thread.isAI ? "Ask ALink AI…" : "Message"}
           className="flex-1 resize-none rounded-2xl bg-card border border-border px-3 py-2 text-sm outline-none focus:border-[var(--brand-500)] max-h-24"
         />
         <motion.button
           whileHover={{ scale: 1.06 }}
           whileTap={{ scale: 0.94 }}
-          onClick={submit}
+          onClick={() => submit()}
           disabled={!text.trim()}
           className={`size-9 grid place-items-center rounded-full text-white transition ${text.trim() ? "brand-gradient" : "bg-muted text-muted-foreground"}`}
           aria-label="Send"
@@ -421,8 +472,9 @@ function ThreadView({
   );
 }
 
-function Bubble({ m, isAI }: { m: ChatMessage; isAI: boolean }) {
-  const mine = m.fromMe;
+function Bubble({ m, mine }: { m: ChatMessage; mine: boolean }) {
+  const isAI = m.isAI;
+  const dateStr = new Date(m.at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
   return (
     <motion.div
       layout
@@ -440,12 +492,13 @@ function Bubble({ m, isAI }: { m: ChatMessage; isAI: boolean }) {
             : "bg-muted text-foreground rounded-bl-sm"
         }`}
       >
-        {m.text}
+        {m.body}
         <div className={`mt-1 text-[10px] ${mine ? "text-white/70" : "text-muted-foreground"} flex items-center gap-1 justify-end`}>
-          <span>{m.at}</span>
-          {mine && m.status && <span className="capitalize">· {m.status}</span>}
+          <span>{dateStr}</span>
+          {mine && <span className="capitalize">· {m.read ? "read" : "sent"}</span>}
         </div>
       </div>
     </motion.div>
   );
 }
+

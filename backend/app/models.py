@@ -82,6 +82,8 @@ class Booking(Base):
     topic: Mapped[str] = mapped_column(String, default="")
     date: Mapped[str] = mapped_column(String)        # ISO date YYYY-MM-DD
     time: Mapped[str] = mapped_column(String)        # HH:MM
+    starts_at_utc: Mapped[str | None] = mapped_column(String, index=True)
+    timezone: Mapped[str | None] = mapped_column(String)
     duration: Mapped[int] = mapped_column(Integer, default=30)
     status: Mapped[str] = mapped_column(String, default="pending")  # upcoming|pending|completed|cancelled
     meeting_link: Mapped[str | None] = mapped_column(String)
@@ -106,6 +108,7 @@ class Referral(Base):
     # submitted | under_review | forwarded | declined
 
     referrer: Mapped[User | None] = relationship(foreign_keys=[referrer_id])
+    owner: Mapped[User] = relationship(foreign_keys=[owner_id])
 
 
 # ---------- Events ---------------------------------------------------------- #

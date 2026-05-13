@@ -5,6 +5,7 @@ import { Badge } from "../components/ui/badge";
 import { Progress } from "../components/ui/progress";
 import { Card, CardContent } from "../components/ui/card";
 import { Trophy, Flame, Target } from "lucide-react";
+import { toast } from "sonner";
 
 const rarityColor: Record<string, string> = {
   Common: "var(--mint)",
@@ -15,11 +16,22 @@ const rarityColor: Record<string, string> = {
 
 export default function Achievements() {
   const [achievements, setAchievements] = React.useState<any[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
 
   React.useEffect(() => {
+    const controller = new AbortController();
     const token = getAuthToken();
     if (!token) return;
-    apiRequest<any[]>("/achievements", { token }).then(setAchievements).catch(() => {});
+    setIsLoading(true);
+    apiRequest<any[]>("/achievements", { token, signal: controller.signal })
+      .then(setAchievements)
+      .catch((err: any) => {
+        if (err?.name !== "AbortError") {
+          toast.error("Failed to load achievements", { description: err.message });
+        }
+      })
+      .finally(() => setIsLoading(false));
+    return () => controller.abort();
   }, []);
 
   const earned = achievements.filter(a => a.earnedAt).length;
@@ -47,6 +59,11 @@ export default function Achievements() {
       </div>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {isLoading && (
+          <div className="sm:col-span-2 lg:col-span-3 text-center text-muted-foreground py-12 rounded-2xl border border-dashed border-border">
+            Loading achievements...
+          </div>
+        )}
         {achievements.map((a, i) => {
           const tone = rarityColor[a.rarity];
           const earned = !!a.earnedAt;
@@ -75,6 +92,11 @@ export default function Achievements() {
             </motion.div>
           );
         })}
+        {!isLoading && achievements.length === 0 && (
+          <div className="sm:col-span-2 lg:col-span-3 text-center text-muted-foreground py-12 rounded-2xl border border-dashed border-border">
+            No achievements available.
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,7 +1,8 @@
 import uuid
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import String, cast, or_
 from sqlalchemy.orm import Session
 
 from ..database import get_db
@@ -13,19 +14,54 @@ from ..schemas import JobCommentIn, JobCommentOut, JobEngagementOut, JobIn, JobO
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
 
+def get_visible_job_or_404(db: Session, job_id: str, current: User) -> Job:
+    job = db.get(Job, job_id)
+    if not job:
+        raise HTTPException(404, "Job not found")
+    if job.status != "live" and current.role != "admin" and job.posted_by_id != current.id:
+        raise HTTPException(404, "Job not found")
+    return job
+
+
+def delete_comment_tree(db: Session, comment: JobComment) -> None:
+    for reply in db.query(JobComment).filter(JobComment.parent_id == comment.id).all():
+        delete_comment_tree(db, reply)
+    db.delete(comment)
+
+
 @router.get("", response_model=list[JobOut])
 def list_jobs(
+    q: str | None = Query(default=None, description="search role/company/location"),
     type: str | None = None,
     company: str | None = None,
+    status: str | None = None,
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current: User = Depends(get_current_user),
 ) -> list[Job]:
-    qry = db.query(Job).filter(Job.status == "live")
+    qry = db.query(Job)
+    if status:
+        if status != "live" and current.role != "admin":
+            raise HTTPException(403, "Only admins can view non-live jobs")
+        qry = qry.filter(Job.status == status)
+    elif current.role != "admin":
+        qry = qry.filter(Job.status == "live")
+    if q:
+        like = f"%{q}%"
+        qry = qry.filter(
+            or_(
+                Job.role.ilike(like),
+                Job.company.ilike(like),
+                Job.location.ilike(like),
+                cast(Job.tags, String).ilike(like),
+            )
+        )
     if type:
         qry = qry.filter(Job.type == type)
     if company:
         qry = qry.filter(Job.company.ilike(f"%{company}%"))
-    return qry.order_by(Job.posted.desc()).all()
+    return qry.order_by(Job.posted.desc()).offset(offset).limit(limit).all()
 
 
 @router.post("", response_model=JobOut, status_code=201)
@@ -56,11 +92,8 @@ def create_job(
 
 
 @router.get("/{job_id}", response_model=JobOut)
-def get_job(job_id: str, db: Session = Depends(get_db), _: User = Depends(get_current_user)) -> Job:
-    j = db.get(Job, job_id)
-    if not j:
-        raise HTTPException(404, "Job not found")
-    return j
+def get_job(job_id: str, db: Session = Depends(get_db), current: User = Depends(get_current_user)) -> Job:
+    return get_visible_job_or_404(db, job_id, current)
 
 
 @router.post("/{job_id}/approve", response_model=JobOut)
@@ -92,8 +125,7 @@ def job_engagement(
     db: Session = Depends(get_db),
     current: User = Depends(get_current_user),
 ) -> JobEngagementOut:
-    if not db.get(Job, job_id):
-        raise HTTPException(404, "Job not found")
+    get_visible_job_or_404(db, job_id, current)
     likes = db.query(JobLike).filter(JobLike.job_id == job_id).count()
     comments = db.query(JobComment).filter(JobComment.job_id == job_id).count()
     liked = (
@@ -110,8 +142,7 @@ def like_job(
     db: Session = Depends(get_db),
     current: User = Depends(get_current_user),
 ) -> dict:
-    if not db.get(Job, job_id):
-        raise HTTPException(404, "Job not found")
+    get_visible_job_or_404(db, job_id, current)
     existing = (
         db.query(JobLike)
         .filter(JobLike.job_id == job_id, JobLike.user_id == current.id)
@@ -150,10 +181,9 @@ def unlike_job(
 def list_comments(
     job_id: str,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current: User = Depends(get_current_user),
 ) -> list[JobComment]:
-    if not db.get(Job, job_id):
-        raise HTTPException(404, "Job not found")
+    get_visible_job_or_404(db, job_id, current)
     # Return top-level comments (no parent); replies are nested via the relationship
     return (
         db.query(JobComment)
@@ -170,8 +200,7 @@ def add_comment(
     db: Session = Depends(get_db),
     current: User = Depends(get_current_user),
 ) -> JobComment:
-    if not db.get(Job, job_id):
-        raise HTTPException(404, "Job not found")
+    get_visible_job_or_404(db, job_id, current)
     # If replying, validate parent exists and belongs to the same job
     if body.parent_id:
         parent = db.get(JobComment, body.parent_id)
@@ -197,10 +226,11 @@ def delete_comment(
     db: Session = Depends(get_db),
     current: User = Depends(get_current_user),
 ) -> None:
+    get_visible_job_or_404(db, job_id, current)
     c = db.get(JobComment, comment_id)
     if not c or c.job_id != job_id:
         raise HTTPException(404, "Comment not found")
     if c.user_id != current.id and current.role != "admin":
         raise HTTPException(403, "Not your comment")
-    db.delete(c)
+    delete_comment_tree(db, c)
     db.commit()

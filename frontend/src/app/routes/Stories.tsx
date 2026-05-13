@@ -17,20 +17,28 @@ export default function Stories() {
   const { user } = useAuth();
   const [stories, setStories] = React.useState<any[]>([]);
   const [open, setOpen] = React.useState(false);
+  const [isLoading, setIsLoading] = React.useState(true);
 
-  const fetchStories = React.useCallback(async () => {
+  const fetchStories = React.useCallback(async (signal?: AbortSignal) => {
     const token = getAuthToken();
     if (!token) return;
     try {
-      const data = await apiRequest<any[]>("/stories", { token });
+      const data = await apiRequest<any[]>("/stories", { token, signal });
       setStories(data);
     } catch (err: any) {
-      toast.error("Failed to load stories", { description: err.message });
+      if (err?.name !== "AbortError") {
+        toast.error("Failed to load stories", { description: err.message });
+      }
+    } finally {
+      setIsLoading(false);
     }
   }, []);
 
   React.useEffect(() => {
-    fetchStories();
+    const controller = new AbortController();
+    setIsLoading(true);
+    fetchStories(controller.signal);
+    return () => controller.abort();
   }, [fetchStories]);
 
   return (
@@ -81,6 +89,9 @@ export default function Stories() {
       </div>
 
       {/* Featured */}
+      {isLoading && (
+        <div className="py-10 text-center text-muted-foreground">Loading stories...</div>
+      )}
       {stories.length > 1 && (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="grid md:grid-cols-2 gap-5">
           <FeaturedStory s={stories[0]} />
@@ -108,7 +119,7 @@ export default function Stories() {
               </CardContent>
             </Card>
           </motion.div>
-        )) : (stories.length === 0 && <div className="col-span-full py-16 text-center text-muted-foreground">No stories published yet.</div>)}
+        )) : (!isLoading && stories.length === 0 && <div className="col-span-full py-16 text-center text-muted-foreground">No stories published yet.</div>)}
       </div>
     </div>
   );

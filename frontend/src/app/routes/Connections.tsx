@@ -1,7 +1,7 @@
 import * as React from "react";
-import { useSearchParams } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { motion, AnimatePresence } from "motion/react";
-import { apiRequest, getAuthToken } from "../lib/api";
+import { apiRequest, apiRequestAll, getAuthToken } from "../lib/api";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/tabs";
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
@@ -12,30 +12,41 @@ import { toast } from "sonner";
 import { Check, Search, X } from "lucide-react";
 
 export default function Connections() {
+  const nav = useNavigate();
   const [params, setParams] = useSearchParams();
   const tab = params.get("tab") ?? "directory";
   const [q, setQ] = React.useState("");
   const [people, setPeople] = React.useState<any[]>([]);
   const [connected, setConnected] = React.useState<any[]>([]);
   const [incomingRequests, setIncomingRequests] = React.useState<any[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
 
-  const fetchConnections = React.useCallback(async () => {
+  const fetchConnections = React.useCallback(async (signal?: AbortSignal) => {
     const token = getAuthToken();
     if (!token) return;
     try {
       const [u, c, r] = await Promise.all([
-        apiRequest<any[]>("/users", { token }),
-        apiRequest<any[]>("/connections", { token }),
-        apiRequest<any[]>("/connections/requests", { token })
+        apiRequestAll<any>("/users", { token, signal }),
+        apiRequest<any[]>("/connections", { token, signal }),
+        apiRequest<any[]>("/connections/requests", { token, signal })
       ]);
       setPeople(u);
       setConnected(c);
       setIncomingRequests(r);
-    } catch {}
+    } catch (err: any) {
+      if (err?.name !== "AbortError") {
+        toast.error("Failed to load connections", { description: err.message });
+      }
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
   React.useEffect(() => {
-    fetchConnections();
+    const controller = new AbortController();
+    setIsLoading(true);
+    fetchConnections(controller.signal);
+    return () => controller.abort();
   }, [fetchConnections]);
 
   const connectedIds = new Set(connected.map(c => c.id));
@@ -67,6 +78,9 @@ export default function Connections() {
         <TabsContent value="directory">
           <AnimatePresence>
             <motion.div layout className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {isLoading && (
+                <div className="col-span-full text-center text-muted-foreground py-16">Loading directory...</div>
+              )}
               {list.map(p => (
                 <PersonCard key={p.id} p={{ ...p, connected: connectedIds.has(p.id) }}
                   onConnect={async (p) => {
@@ -82,11 +96,11 @@ export default function Connections() {
                       toast.error("Failed to connect", { description: err.message });
                     }
                   }}
-                  onBook={(p) => toast(`Open booking with ${p.name}`)}
-                  onRefer={(p) => toast(`Request a referral from ${p.name}`)}
+                  onBook={(p) => nav(`/app/bookings?new=1&withId=${encodeURIComponent(p.id)}`)}
+                  onRefer={(p) => nav(`/app/referrals?new=1&referrerId=${encodeURIComponent(p.id)}`)}
                 />
               ))}
-              {list.length === 0 && (
+              {!isLoading && list.length === 0 && (
                 <div className="col-span-full text-center text-muted-foreground py-16">No matches. Try a different filter.</div>
               )}
             </motion.div>
@@ -96,13 +110,14 @@ export default function Connections() {
         <TabsContent value="connected">
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {connected.map(p => (
-              <PersonCard key={p.id} p={{ ...p, connected: true }} onMessage={(p) => toast(`Message ${p.name}`)} />
+              <PersonCard key={p.id} p={{ ...p, connected: true }} onMessage={() => nav("/app/inbox")} />
             ))}
           </div>
         </TabsContent>
 
         <TabsContent value="requests">
           <div className="space-y-3">
+            {isLoading && <div className="text-center text-muted-foreground py-8">Loading requests...</div>}
             {incomingRequests.map(r => (
               <motion.div layout key={r.id} className="rounded-2xl border border-border bg-card p-4 flex items-center gap-4">
                 <Avatar className="size-12"><AvatarImage src={r.from.avatar} /><AvatarFallback>{r.from.name[0]}</AvatarFallback></Avatar>
@@ -112,11 +127,37 @@ export default function Connections() {
                   <div className="text-[10px] text-muted-foreground mt-1">{r.at}</div>
                 </div>
                 <div className="flex gap-2">
-                  <Button size="sm" variant="ghost" onClick={() => toast(`Declined ${r.from.name}`)}><X className="size-4" /></Button>
-                  <Button size="sm" onClick={() => toast.success(`You're connected with ${r.from.name}`)}><Check className="size-4" /></Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={async () => {
+                      try {
+                        await apiRequest(`/connections/requests/${r.id}/decline`, { method: "POST", token: getAuthToken() || undefined });
+                        toast(`Declined ${r.from.name}`);
+                        fetchConnections();
+                      } catch (err: any) {
+                        toast.error("Failed to decline request", { description: err.message });
+                      }
+                    }}
+                  ><X className="size-4" /></Button>
+                  <Button
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        await apiRequest(`/connections/requests/${r.id}/accept`, { method: "POST", token: getAuthToken() || undefined });
+                        toast.success(`You're connected with ${r.from.name}`);
+                        fetchConnections();
+                      } catch (err: any) {
+                        toast.error("Failed to accept request", { description: err.message });
+                      }
+                    }}
+                  ><Check className="size-4" /></Button>
                 </div>
               </motion.div>
             ))}
+            {!isLoading && incomingRequests.length === 0 && (
+              <div className="text-center text-muted-foreground py-8">No pending requests.</div>
+            )}
           </div>
         </TabsContent>
       </Tabs>

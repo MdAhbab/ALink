@@ -7,7 +7,7 @@ import { Button } from "../components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "../components/ui/dropdown-menu";
-import { apiRequest, getAuthToken } from "../lib/api";
+import { apiRequest, apiRequestAll, getAuthToken } from "../lib/api";
 import { LineChart, Line, ResponsiveContainer, XAxis, Tooltip, BarChart, Bar, CartesianGrid, Cell, PieChart, Pie, Legend } from "recharts";
 import { useAuth } from "../lib/auth";
 import { Check, X, ShieldCheck, ShieldAlert, AlertTriangle } from "lucide-react";
@@ -16,7 +16,7 @@ import { toast } from "sonner";
 export function AdminGate() {
   const { user } = useAuth();
   const nav = useNavigate();
-  React.useEffect(() => { if (user && user.role !== "admin") nav("/app", { replace: true }); }, [user]);
+  React.useEffect(() => { if (user && user.role !== "admin") nav("/app", { replace: true }); }, [user, nav]);
   if (!user || user.role !== "admin") return <Forbidden />;
   return <AdminLayout />;
 }
@@ -59,15 +59,22 @@ export function AdminOverview() {
   const [adminStats, setAdminStats] = React.useState<any>({ users: 0, alumni: 0, students: 0, verifications: 0, weekly: [] });
   const [verificationQueue, setVerificationQueue] = React.useState<any[]>([]);
   const [jobPosts, setJobPosts] = React.useState<any[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
 
   React.useEffect(() => {
+    const controller = new AbortController();
     const token = getAuthToken();
-    if (!token) return;
+    if (!token) {
+      setIsLoading(false);
+      return () => controller.abort();
+    }
+    setIsLoading(true);
     Promise.all([
-      apiRequest<any>("/admin/stats", { token }).then(setAdminStats).catch(() => {}),
-      apiRequest<any[]>("/verifications", { token }).then(setVerificationQueue).catch(() => {}),
-      apiRequest<any[]>("/jobs?status=pending", { token }).then(setJobPosts).catch(() => {}),
-    ]);
+      apiRequest<any>("/admin/stats", { token, signal: controller.signal }).then(setAdminStats).catch(() => {}),
+      apiRequest<any[]>("/verifications", { token, signal: controller.signal }).then(setVerificationQueue).catch(() => {}),
+      apiRequestAll<any>("/admin/jobs?status=pending", { token, signal: controller.signal }).then(setJobPosts).catch(() => {}),
+    ]).finally(() => setIsLoading(false));
+    return () => controller.abort();
   }, []);
 
   const cards = [
@@ -86,7 +93,7 @@ export function AdminOverview() {
         {cards.map(c => (
           <Card key={c.l}><CardContent className="p-5">
             <div className="text-xs text-muted-foreground">{c.l}</div>
-            <div className="font-serif text-3xl mt-1">{c.v}</div>
+            <div className="font-serif text-3xl mt-1">{isLoading ? "..." : c.v}</div>
           </CardContent></Card>
         ))}
       </div>
@@ -123,7 +130,9 @@ export function AdminOverview() {
       <Card><CardContent className="p-5">
         <div className="flex items-center justify-between">
           <h3 className="font-serif text-2xl">Needs attention</h3>
-          <Badge variant="outline" className="rounded-full">{verificationQueue.length + jobPosts.filter(j => j.status !== "live").length} items</Badge>
+          <Badge variant="outline" className="rounded-full">
+            {isLoading ? "..." : `${verificationQueue.length + jobPosts.filter(j => j.status !== "live").length} items`}
+          </Badge>
         </div>
         <div className="grid md:grid-cols-2 gap-3 mt-4">
           <div className="rounded-xl border border-border p-4">
@@ -142,15 +151,28 @@ export function AdminOverview() {
 
 export function AdminUsers() {
   const [people, setPeople] = React.useState<any[]>([]);
-  const fetchUsers = React.useCallback(async () => {
+  const [isLoading, setIsLoading] = React.useState(true);
+  const fetchUsers = React.useCallback(async (signal?: AbortSignal) => {
     const token = getAuthToken();
     if (!token) return;
+    if (!signal) setIsLoading(true);
     try {
-      const data = await apiRequest<any[]>("/admin/users", { token });
+      const data = await apiRequestAll<any>("/admin/users", { token, signal });
       setPeople(data);
-    } catch {}
+    } catch (err: any) {
+      if (err?.name !== "AbortError") {
+        toast.error("Failed to load users", { description: err.message });
+      }
+    } finally {
+      if (!signal) setIsLoading(false);
+    }
   }, []);
-  React.useEffect(() => { fetchUsers(); }, [fetchUsers]);
+  React.useEffect(() => {
+    const controller = new AbortController();
+    setIsLoading(true);
+    fetchUsers(controller.signal).finally(() => setIsLoading(false));
+    return () => controller.abort();
+  }, [fetchUsers]);
 
   return (
     <Card><CardContent className="p-0">
@@ -159,6 +181,9 @@ export function AdminUsers() {
           <TableRow><TableHead>User</TableHead><TableHead>Role</TableHead><TableHead>University</TableHead><TableHead>Status</TableHead><TableHead></TableHead></TableRow>
         </TableHeader>
         <TableBody>
+          {isLoading && (
+            <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Loading users...</TableCell></TableRow>
+          )}
           {people.map(p => (
             <TableRow key={p.id}>
               <TableCell>
@@ -197,6 +222,9 @@ export function AdminUsers() {
               </TableCell>
             </TableRow>
           ))}
+          {!isLoading && people.length === 0 && (
+            <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">No users found.</TableCell></TableRow>
+          )}
         </TableBody>
       </Table>
     </CardContent></Card>
@@ -205,18 +233,32 @@ export function AdminUsers() {
 
 export function AdminVerifications() {
   const [verificationQueue, setVerificationQueue] = React.useState<any[]>([]);
-  const fetchQueue = React.useCallback(async () => {
+  const [isLoading, setIsLoading] = React.useState(true);
+  const fetchQueue = React.useCallback(async (signal?: AbortSignal) => {
     const token = getAuthToken();
     if (!token) return;
+    if (!signal) setIsLoading(true);
     try {
-      const data = await apiRequest<any[]>("/verifications", { token });
+      const data = await apiRequest<any[]>("/verifications", { token, signal });
       setVerificationQueue(data);
-    } catch {}
+    } catch (err: any) {
+      if (err?.name !== "AbortError") {
+        toast.error("Failed to load verification queue", { description: err.message });
+      }
+    } finally {
+      if (!signal) setIsLoading(false);
+    }
   }, []);
-  React.useEffect(() => { fetchQueue(); }, [fetchQueue]);
+  React.useEffect(() => {
+    const controller = new AbortController();
+    setIsLoading(true);
+    fetchQueue(controller.signal).finally(() => setIsLoading(false));
+    return () => controller.abort();
+  }, [fetchQueue]);
 
   return (
     <div className="space-y-3">
+      {isLoading && <div className="text-muted-foreground text-center py-10">Loading verification queue...</div>}
       {verificationQueue.map(v => (
         <Card key={v.id}><CardContent className="p-4 flex items-center gap-4">
           <ShieldCheck className="size-7 text-[var(--brand-600)]" />
@@ -246,23 +288,38 @@ export function AdminVerifications() {
           </div>
         </CardContent></Card>
       ))}
-      {verificationQueue.length === 0 && <div className="text-muted-foreground text-center py-10">No pending verifications.</div>}
+      {!isLoading && verificationQueue.length === 0 && <div className="text-muted-foreground text-center py-10">No pending verifications.</div>}
     </div>
   );
 }
 
 export function AdminBookings() {
   const [bookings, setBookings] = React.useState<any[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
   React.useEffect(() => {
+    const controller = new AbortController();
     const token = getAuthToken();
-    if (!token) return;
-    apiRequest<any[]>("/bookings", { token }).then(setBookings).catch(() => {});
+    if (!token) {
+      setIsLoading(false);
+      return () => controller.abort();
+    }
+    setIsLoading(true);
+    apiRequestAll<any>("/bookings", { token, signal: controller.signal })
+      .then(setBookings)
+      .catch((err: any) => {
+        if (err?.name !== "AbortError") {
+          toast.error("Failed to load bookings", { description: err.message });
+        }
+      })
+      .finally(() => setIsLoading(false));
+    return () => controller.abort();
   }, []);
   return (
     <Card><CardContent className="p-0">
       <Table>
         <TableHeader><TableRow><TableHead>Topic</TableHead><TableHead>With</TableHead><TableHead>Date</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
         <TableBody>
+          {isLoading && <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">Loading bookings...</TableCell></TableRow>}
           {bookings.map(b => (
             <TableRow key={b.id}>
               <TableCell>{b.topic}</TableCell>
@@ -271,6 +328,7 @@ export function AdminBookings() {
               <TableCell><Badge variant="outline" className="capitalize">{b.status}</Badge></TableCell>
             </TableRow>
           ))}
+          {!isLoading && bookings.length === 0 && <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">No bookings found.</TableCell></TableRow>}
         </TableBody>
       </Table>
     </CardContent></Card>
@@ -279,16 +337,31 @@ export function AdminBookings() {
 
 export function AdminReferrals() {
   const [referrals, setReferrals] = React.useState<any[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
   React.useEffect(() => {
+    const controller = new AbortController();
     const token = getAuthToken();
-    if (!token) return;
-    apiRequest<any[]>("/referrals", { token }).then(setReferrals).catch(() => {});
+    if (!token) {
+      setIsLoading(false);
+      return () => controller.abort();
+    }
+    setIsLoading(true);
+    apiRequestAll<any>("/referrals", { token, signal: controller.signal })
+      .then(setReferrals)
+      .catch((err: any) => {
+        if (err?.name !== "AbortError") {
+          toast.error("Failed to load referrals", { description: err.message });
+        }
+      })
+      .finally(() => setIsLoading(false));
+    return () => controller.abort();
   }, []);
   return (
     <Card><CardContent className="p-0">
       <Table>
         <TableHeader><TableRow><TableHead>Role</TableHead><TableHead>Company</TableHead><TableHead>Referrer</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
         <TableBody>
+          {isLoading && <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">Loading referrals...</TableCell></TableRow>}
           {referrals.map(r => (
             <TableRow key={r.id}>
               <TableCell>{r.role}</TableCell>
@@ -297,6 +370,7 @@ export function AdminReferrals() {
               <TableCell><Badge variant="outline" className="capitalize">{r.status.replace("_", " ")}</Badge></TableCell>
             </TableRow>
           ))}
+          {!isLoading && referrals.length === 0 && <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">No referrals found.</TableCell></TableRow>}
         </TableBody>
       </Table>
     </CardContent></Card>
@@ -305,21 +379,35 @@ export function AdminReferrals() {
 
 export function AdminJobs() {
   const [jobPosts, setJobPosts] = React.useState<any[]>([]);
-  const fetchJobs = React.useCallback(async () => {
+  const [isLoading, setIsLoading] = React.useState(true);
+  const fetchJobs = React.useCallback(async (signal?: AbortSignal) => {
     const token = getAuthToken();
     if (!token) return;
+    if (!signal) setIsLoading(true);
     try {
-      const data = await apiRequest<any[]>("/jobs?status=pending", { token }); // Only pending logic for now to keep simple
+      const data = await apiRequestAll<any>("/admin/jobs?status=pending", { token, signal });
       setJobPosts(data);
-    } catch {}
+    } catch (err: any) {
+      if (err?.name !== "AbortError") {
+        toast.error("Failed to load jobs", { description: err.message });
+      }
+    } finally {
+      if (!signal) setIsLoading(false);
+    }
   }, []);
-  React.useEffect(() => { fetchJobs(); }, [fetchJobs]);
+  React.useEffect(() => {
+    const controller = new AbortController();
+    setIsLoading(true);
+    fetchJobs(controller.signal).finally(() => setIsLoading(false));
+    return () => controller.abort();
+  }, [fetchJobs]);
 
   return (
     <Card><CardContent className="p-0">
       <Table>
         <TableHeader><TableRow><TableHead>Role</TableHead><TableHead>Company</TableHead><TableHead>Posted by</TableHead><TableHead>Status</TableHead><TableHead></TableHead></TableRow></TableHeader>
         <TableBody>
+          {isLoading && <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Loading jobs...</TableCell></TableRow>}
           {jobPosts.map(j => (
             <TableRow key={j.id}>
               <TableCell>{j.role}</TableCell>
@@ -352,6 +440,7 @@ export function AdminJobs() {
               </TableCell>
             </TableRow>
           ))}
+          {!isLoading && jobPosts.length === 0 && <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">No pending jobs.</TableCell></TableRow>}
         </TableBody>
       </Table>
     </CardContent></Card>

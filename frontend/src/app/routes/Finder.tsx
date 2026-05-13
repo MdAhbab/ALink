@@ -1,7 +1,8 @@
 import * as React from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useAuth } from "../lib/auth";
-import { apiRequest, getAuthToken } from "../lib/api";
+import { apiRequestAll, getAuthToken } from "../lib/api";
+import { useDebouncedValue } from "../lib/useDebouncedValue";
 import { PersonCard } from "../components/people/PersonCard";
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
@@ -9,21 +10,33 @@ import { Badge } from "../components/ui/badge";
 import { Search, SlidersHorizontal, X } from "lucide-react";
 import { toast } from "sonner";
 import type { Role } from "./Auth";
+import { useNavigate } from "react-router";
 
 export default function Finder() {
+  const nav = useNavigate();
   const { user } = useAuth();
   const [q, setQ] = React.useState("");
+  const debouncedQ = useDebouncedValue(q, 250);
   const [role, setRole] = React.useState<Role | "all">(user?.role === "alumni" ? "student" : "alumni");
   const [industry, setIndustry] = React.useState<string | null>(null);
   const [university, setUniversity] = React.useState<string | null>(null);
   const [people, setPeople] = React.useState<any[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
 
   React.useEffect(() => {
     const token = getAuthToken();
     if (!token) return;
-    apiRequest<any[]>("/users", { token })
+    const controller = new AbortController();
+    setIsLoading(true);
+    apiRequestAll<any>("/users", { token, signal: controller.signal })
       .then(setPeople)
-      .catch((err) => toast.error("Failed to fetch users", { description: err.message }));
+      .catch((err: any) => {
+        if (err?.name !== "AbortError") {
+          toast.error("Failed to fetch users", { description: err.message });
+        }
+      })
+      .finally(() => setIsLoading(false));
+    return () => controller.abort();
   }, []);
 
   const industries = Array.from(new Set(people.map(p => p.industry).filter(Boolean) as string[]));
@@ -33,7 +46,7 @@ export default function Finder() {
     (role === "all" || p.role === role) &&
     (!industry || p.industry === industry) &&
     (!university || p.university === university) &&
-    [p.name, p.title, p.company, p.major].filter(Boolean).join(" ").toLowerCase().includes(q.toLowerCase())
+    [p.name, p.title, p.company, p.major].filter(Boolean).join(" ").toLowerCase().includes(debouncedQ.toLowerCase())
   );
 
   return (
@@ -83,20 +96,39 @@ export default function Finder() {
       </div>
 
       <div className="flex items-center justify-between">
-        <div className="text-sm text-muted-foreground">{filtered.length} {filtered.length === 1 ? "result" : "results"}</div>
+        <div className="text-sm text-muted-foreground">
+          {isLoading ? "Loading..." : `${filtered.length} ${filtered.length === 1 ? "result" : "results"}`}
+        </div>
         <div className="text-xs text-muted-foreground">Sorted by relevance</div>
       </div>
 
       <AnimatePresence>
         <motion.div layout className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {isLoading && (
+            <div className="col-span-full text-center text-muted-foreground py-16 rounded-2xl border border-dashed border-border">
+              Loading people...
+            </div>
+          )}
           {filtered.map(p => (
             <PersonCard key={p.id} p={p}
-              onConnect={(p) => toast.success(`Request sent to ${p.name}`)}
-              onBook={(p) => toast(`Open booking with ${p.name}`)}
-              onRefer={(p) => toast(`Request a referral from ${p.name}`)}
+              onConnect={async (p) => {
+                try {
+                  await apiRequest("/connections/requests", {
+                    method: "POST",
+                    token: getAuthToken() || undefined,
+                    body: { to_id: p.id, message: "Hi! I'd like to connect." },
+                  });
+                  toast.success(`Request sent to ${p.name}`);
+                } catch (err: any) {
+                  toast.error("Failed to connect", { description: err.message });
+                }
+              }}
+              onMessage={() => nav("/app/inbox")}
+              onBook={(p) => nav(`/app/bookings?new=1&withId=${encodeURIComponent(p.id)}`)}
+              onRefer={(p) => nav(`/app/referrals?new=1&referrerId=${encodeURIComponent(p.id)}`)}
             />
           ))}
-          {filtered.length === 0 && (
+          {!isLoading && filtered.length === 0 && (
             <div className="col-span-full text-center text-muted-foreground py-16 rounded-2xl border border-dashed border-border">
               <div className="font-serif text-2xl">No matches</div>
               <p className="text-sm">Try broadening your filters or removing a tag.</p>

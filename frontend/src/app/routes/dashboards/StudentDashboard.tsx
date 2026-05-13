@@ -2,7 +2,7 @@ import * as React from "react";
 import { Link } from "react-router";
 import { motion, useScroll, useTransform, useReducedMotion } from "motion/react";
 import { useAuth } from "../../lib/auth";
-import { apiRequest, getAuthToken } from "../../lib/api";
+import { apiRequest, apiRequestAll, getAuthToken } from "../../lib/api";
 import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
@@ -25,22 +25,26 @@ export default function StudentDashboard() {
   const [referrals, setReferrals] = React.useState<any[]>([]);
   const [connections, setConnections] = React.useState<any[]>([]);
   const [mentorPrograms, setMentorPrograms] = React.useState<any[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
 
   React.useEffect(() => {
+    const controller = new AbortController();
     const token = getAuthToken();
     if (!token) return;
+    setIsLoading(true);
     Promise.all([
-      apiRequest<any[]>("/bookings", { token }).then(setBookings).catch(() => {}),
-      apiRequest<any[]>("/events", { token }).then(setEvents).catch(() => {}),
-      apiRequest<any[]>("/jobs", { token }).then(setJobs).catch(() => {}),
-      apiRequest<any[]>("/users", { token }).then(setPeople).catch(() => {}),
-      apiRequest<any[]>("/activity", { token }).then(setActivity).catch(() => {}),
-      apiRequest<any[]>("/achievements", { token }).then(setAchievements).catch(() => {}),
-      apiRequest<any[]>("/goals", { token }).then(setStudentGoals).catch(() => {}),
-      apiRequest<any[]>("/referrals", { token }).then(setReferrals).catch(() => {}),
-      apiRequest<any[]>("/connections", { token }).then(setConnections).catch(() => {}),
-      apiRequest<any[]>("/mentorship/programs", { token }).then(setMentorPrograms).catch(() => {}),
-    ]);
+      apiRequestAll<any>("/bookings", { token, signal: controller.signal }).then(setBookings).catch(() => {}),
+      apiRequest<any[]>("/events", { token, signal: controller.signal }).then(setEvents).catch(() => {}),
+      apiRequestAll<any>("/jobs", { token, signal: controller.signal }).then(setJobs).catch(() => {}),
+      apiRequestAll<any>("/users", { token, signal: controller.signal }).then(setPeople).catch(() => {}),
+      apiRequestAll<any>("/activity", { token, signal: controller.signal }).then(setActivity).catch(() => {}),
+      apiRequest<any[]>("/achievements", { token, signal: controller.signal }).then(setAchievements).catch(() => {}),
+      apiRequest<any[]>("/goals", { token, signal: controller.signal }).then(setStudentGoals).catch(() => {}),
+      apiRequestAll<any>("/referrals", { token, signal: controller.signal }).then(setReferrals).catch(() => {}),
+      apiRequest<any[]>("/connections", { token, signal: controller.signal }).then(setConnections).catch(() => {}),
+      apiRequest<any[]>("/mentorship/programs", { token, signal: controller.signal }).then(setMentorPrograms).catch(() => {}),
+    ]).finally(() => setIsLoading(false));
+    return () => controller.abort();
   }, []);
 
   const upcoming = bookings.find(b => b.status === "upcoming");
@@ -51,6 +55,16 @@ export default function StudentDashboard() {
   const blobX = useTransform(scrollYProgress, [0, 1], [0, reduce ? 0 : -30]);
   const tintY = useTransform(scrollYProgress, [0, 1], [0, reduce ? 0 : 30]);
   const blob2Y = useTransform(scrollYProgress, [0, 1], [0, reduce ? 0 : 40]);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="rounded-3xl border border-border bg-card p-8 text-center text-muted-foreground">
+          Loading dashboard...
+        </div>
+      </div>
+    );
+  }
 
   return (
     <motion.div variants={stagger} initial="hidden" animate="visible" className="space-y-6">

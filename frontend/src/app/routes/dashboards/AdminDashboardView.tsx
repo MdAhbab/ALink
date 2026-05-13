@@ -13,18 +13,25 @@ const stagger = { hidden: {}, visible: { transition: { staggerChildren: 0.05 } }
 const item = { hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0, transition: { duration: 0.3 } } };
 
 export default function AdminDashboardView() {
-  const [adminStats, setAdminStats] = React.useState<any>({ users: 0, alumni: 0, students: 0, bookings: 0, referrals: 0, weekly: [] });
+  const [adminStats, setAdminStats] = React.useState<any>({
+    users: 0, alumni: 0, students: 0, bookings: 0, referrals: 0, weekly: [],
+    uptimeSeconds: 0, activeNow: 0, flaggedJobs: 0, newToday: 0,
+  });
   const [verificationQueue, setVerificationQueue] = React.useState<any[]>([]);
   const [jobPosts, setJobPosts] = React.useState<any[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
 
   React.useEffect(() => {
+    const controller = new AbortController();
     const token = getAuthToken();
     if (!token) return;
+    setIsLoading(true);
     Promise.all([
-      apiRequest<any>("/admin/stats", { token }).then(setAdminStats).catch(() => {}),
-      apiRequest<any[]>("/verifications", { token }).then(setVerificationQueue).catch(() => {}),
-      apiRequest<any[]>("/jobs?status=pending", { token }).then(setJobPosts).catch(() => {}), // Assuming pending jobs
-    ]);
+      apiRequest<any>("/admin/stats", { token, signal: controller.signal }).then(setAdminStats).catch(() => {}),
+      apiRequest<any[]>("/verifications", { token, signal: controller.signal }).then(setVerificationQueue).catch(() => {}),
+      apiRequest<any[]>("/jobs?status=pending&limit=50", { token, signal: controller.signal }).then(setJobPosts).catch(() => {}),
+    ]).finally(() => setIsLoading(false));
+    return () => controller.abort();
   }, []);
 
   const roleData = [
@@ -32,13 +39,35 @@ export default function AdminDashboardView() {
     { name: "Students", value: adminStats.students, fill: "var(--amber)" },
   ];
 
+  const formatUptime = (seconds: number) => {
+    if (!seconds) return "0m";
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    if (!hours) return `${minutes}m`;
+    return `${hours}h ${minutes}m`;
+  };
+
+  if (isLoading && verificationQueue.length === 0 && jobPosts.length === 0 && adminStats.weekly.length === 0) {
+    return (
+      <div className="space-y-6">
+        <div className="rounded-3xl border border-border bg-card p-8 text-center text-muted-foreground">
+          Loading dashboard...
+        </div>
+      </div>
+    );
+  }
+
   return (
     <motion.div variants={stagger} initial="hidden" animate="visible" className="space-y-6">
       <motion.div variants={item} className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
         <div>
           <Badge variant="outline" className="rounded-full"><ShieldCheck className="size-3" /> Operator console</Badge>
           <h1 className="font-serif text-4xl md:text-5xl mt-2">Trust & growth, at a glance.</h1>
-          <p className="text-muted-foreground">26 verifications pending · 1 flagged job · 0 incidents today.</p>
+          <p className="text-muted-foreground">
+            {isLoading
+              ? "Loading live signals..."
+              : `${verificationQueue.length} verifications pending · ${adminStats.flaggedJobs} flagged job${adminStats.flaggedJobs === 1 ? "" : "s"} · ${adminStats.newToday} new user${adminStats.newToday === 1 ? "" : "s"} today.`}
+          </p>
         </div>
         <div className="flex gap-2">
           <Link to="/admin/verifications"><Button className="gap-2">Verification queue <ArrowUpRight className="size-4" /></Button></Link>
@@ -49,10 +78,10 @@ export default function AdminDashboardView() {
       {/* Live status strip */}
       <motion.div variants={item} className="rounded-2xl border border-border bg-card grid grid-cols-2 md:grid-cols-4 divide-x divide-border">
         {[
-          { l: "Uptime", v: "99.98%", i: Server, c: "var(--mint)" },
-          { l: "Active now", v: "1,247", i: Activity, c: "var(--brand-500)" },
-          { l: "Reports today", v: "3", i: AlertTriangle, c: "var(--amber)" },
-          { l: "New today", v: "82", i: Users, c: "var(--rose)" },
+          { l: "Uptime", v: isLoading ? "..." : formatUptime(adminStats.uptimeSeconds), i: Server, c: "var(--mint)" },
+          { l: "Active (60m)", v: isLoading ? "..." : adminStats.activeNow.toLocaleString(), i: Activity, c: "var(--brand-500)" },
+          { l: "Flagged jobs", v: isLoading ? "..." : adminStats.flaggedJobs.toLocaleString(), i: AlertTriangle, c: "var(--amber)" },
+          { l: "New today", v: isLoading ? "..." : adminStats.newToday.toLocaleString(), i: Users, c: "var(--rose)" },
         ].map(s => (
           <div key={s.l} className="p-4 flex items-center gap-3">
             <div className="size-10 rounded-xl grid place-items-center" style={{ background: `${s.c}22` }}>

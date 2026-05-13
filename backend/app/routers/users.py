@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
+from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..deps import get_current_user
@@ -25,6 +27,8 @@ def update_me(
     data = body.model_dump(exclude_unset=True, by_alias=False)
     for k, v in data.items():
         setattr(current, k, v)
+        if k == "prefs":
+            flag_modified(current, "prefs")
 
     # PRD §2.2 — auto-reclassify student → alumni when graduation year is in the past
     if current.role == "student" and current.graduation_year is not None:

@@ -122,4 +122,14 @@ def remove_connection(
     if not row:
         raise HTTPException(404, "Not connected")
     db.delete(row)
+    (
+        db.query(ConnectionRequest)
+        .filter(
+            or_(
+                and_(ConnectionRequest.from_id == current.id, ConnectionRequest.to_id == other_id),
+                and_(ConnectionRequest.from_id == other_id, ConnectionRequest.to_id == current.id),
+            )
+        )
+        .delete(synchronize_session=False)
+    )
     db.commit()

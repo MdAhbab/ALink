@@ -4,18 +4,29 @@ import { apiRequest, getAuthToken } from "../lib/api";
 import { Card, CardContent } from "../components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
 import { Badge } from "../components/ui/badge";
+import { toast } from "sonner";
 
 export default function Inbox() {
   const [notifications, setNotifications] = React.useState<any[]>([]);
   const [people, setPeople] = React.useState<any[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
 
   React.useEffect(() => {
+    const controller = new AbortController();
     const token = getAuthToken();
     if (!token) return;
+    setIsLoading(true);
     Promise.all([
-      apiRequest<any[]>("/notifications", { token }).then(setNotifications).catch(() => {}),
-      apiRequest<any[]>("/users", { token }).then(setPeople).catch(() => {}),
-    ]);
+      apiRequest<any[]>("/notifications", { token, signal: controller.signal }).then(setNotifications).catch(() => {}),
+      apiRequest<any[]>("/users?limit=50", { token, signal: controller.signal }).then(setPeople).catch(() => {}),
+    ])
+      .catch((err: any) => {
+        if (err?.name !== "AbortError") {
+          toast.error("Failed to load inbox", { description: err.message });
+        }
+      })
+      .finally(() => setIsLoading(false));
+    return () => controller.abort();
   }, []);
 
   return (
@@ -29,6 +40,7 @@ export default function Inbox() {
           <CardContent className="p-0">
             <div className="p-4 border-b border-border"><strong className="text-sm">Notifications</strong></div>
             <div className="divide-y divide-border max-h-[600px] overflow-auto">
+              {isLoading && <div className="p-4 text-sm text-muted-foreground">Loading notifications...</div>}
               {notifications.map(n => (
                 <motion.div key={n.id} whileHover={{ x: 2 }} className="p-4 hover:bg-muted/40 cursor-pointer">
                   <div className="flex items-start gap-2">
@@ -41,6 +53,7 @@ export default function Inbox() {
                   </div>
                 </motion.div>
               ))}
+              {!isLoading && notifications.length === 0 && <div className="p-4 text-sm text-muted-foreground">No notifications yet.</div>}
             </div>
           </CardContent>
         </Card>
@@ -48,9 +61,10 @@ export default function Inbox() {
           <CardContent className="p-0">
             <div className="p-4 border-b border-border flex items-center justify-between">
               <strong className="text-sm">Conversations</strong>
-              <Badge variant="secondary">{people.length - 2}</Badge>
+              <Badge variant="secondary">{Math.max(0, people.length - 2)}</Badge>
             </div>
             <div className="divide-y divide-border">
+              {isLoading && <div className="p-4 text-sm text-muted-foreground">Loading conversations...</div>}
               {people.slice(0, 5).map(p => (
                 <div key={p.id} className="p-4 flex items-center gap-3 hover:bg-muted/40 cursor-pointer">
                   <Avatar className="size-10"><AvatarImage src={p.avatar} /><AvatarFallback>{p.name[0]}</AvatarFallback></Avatar>
@@ -61,6 +75,7 @@ export default function Inbox() {
                   <div className="text-[10px] text-muted-foreground">2h</div>
                 </div>
               ))}
+              {!isLoading && people.length === 0 && <div className="p-4 text-sm text-muted-foreground">No conversations yet.</div>}
             </div>
           </CardContent>
         </Card>

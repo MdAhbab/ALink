@@ -4,6 +4,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import inspect, text
 
 from .config import settings
 from .controllers import ALL_CONTROLLERS
@@ -11,9 +12,28 @@ from .database import Base, engine
 from .seed import seed_if_empty
 
 
+def ensure_compatible_schema() -> None:
+    """Small compatibility migration for local create_all based SQLite installs."""
+    inspector = inspect(engine)
+    if "bookings" not in inspector.get_table_names():
+        return
+    booking_columns = {c["name"] for c in inspector.get_columns("bookings")}
+    statements: list[str] = []
+    if "starts_at_utc" not in booking_columns:
+        statements.append("ALTER TABLE bookings ADD COLUMN starts_at_utc VARCHAR")
+    if "timezone" not in booking_columns:
+        statements.append("ALTER TABLE bookings ADD COLUMN timezone VARCHAR")
+    if not statements:
+        return
+    with engine.begin() as conn:
+        for statement in statements:
+            conn.execute(text(statement))
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     Base.metadata.create_all(bind=engine)
+    ensure_compatible_schema()
     # Ensure the uploads directory exists
     Path(settings.upload_dir).mkdir(parents=True, exist_ok=True)
     seed_if_empty()

@@ -1,32 +1,57 @@
 import * as React from "react";
+import { useNavigate } from "react-router";
 import { motion, AnimatePresence } from "motion/react";
-import { apiRequest, getAuthToken } from "../lib/api";
+import { apiRequest, apiRequestAll, getAuthToken } from "../lib/api";
 import { useAuth } from "../lib/auth";
+import { useDebouncedValue } from "../lib/useDebouncedValue";
 import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
 import { Input } from "../components/ui/input";
-import { Briefcase, Building2, MapPin, Search, Sparkles, Heart } from "lucide-react";
+import { Briefcase, Building2, MapPin, Search, Sparkles, Heart, Bookmark } from "lucide-react";
 import { toast } from "sonner";
 
 export default function Jobs() {
+  const nav = useNavigate();
   const { user } = useAuth();
   const [q, setQ] = React.useState("");
+  const debouncedQ = useDebouncedValue(q, 250);
   const [saved, setSaved] = React.useState<Set<string>>(new Set());
   const [jobs, setJobs] = React.useState<any[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
+  const savedStorageKey = React.useMemo(() => `alink:saved-jobs:${user?.id ?? "anon"}`, [user?.id]);
 
   React.useEffect(() => {
+    try {
+      const raw = localStorage.getItem(savedStorageKey);
+      const parsed = raw ? (JSON.parse(raw) as string[]) : [];
+      setSaved(new Set(parsed));
+    } catch {
+      setSaved(new Set());
+    }
+  }, [savedStorageKey]);
+
+  React.useEffect(() => {
+    localStorage.setItem(savedStorageKey, JSON.stringify(Array.from(saved)));
+  }, [saved, savedStorageKey]);
+
+  React.useEffect(() => {
+    const controller = new AbortController();
     const token = getAuthToken();
     if (!token) return;
-    apiRequest<any[]>("/jobs", { token })
+    setIsLoading(true);
+    const qParam = debouncedQ.trim() ? `&q=${encodeURIComponent(debouncedQ.trim())}` : "";
+    apiRequestAll<any>(`/jobs${qParam ? `?${qParam.slice(1)}` : ""}`, { token, signal: controller.signal })
       .then(setJobs)
-      .catch(err => toast.error("Failed to load jobs", { description: err.message }));
-  }, []);
-
-  const filtered = jobs.filter(j =>
-    [j.role, j.company, j.location, ...(j.tags || [])].join(" ").toLowerCase().includes(q.toLowerCase())
-  );
+      .catch((err: any) => {
+        if (err?.name !== "AbortError") {
+          toast.error("Failed to load jobs", { description: err.message });
+        }
+      })
+      .finally(() => setIsLoading(false));
+    return () => controller.abort();
+  }, [debouncedQ]);
 
   return (
     <div className="space-y-6">
@@ -43,18 +68,53 @@ export default function Jobs() {
 
       <AnimatePresence>
         <motion.div layout className="grid lg:grid-cols-2 gap-4">
-          {filtered.map((j, i) => (
+          {isLoading && (
+            <div className="lg:col-span-2 text-center text-muted-foreground py-12 rounded-2xl border border-dashed border-border">
+              Loading jobs...
+            </div>
+          )}
+          {jobs.map((j, i) => (
             <motion.div layout key={j.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}>
-              <JobCard job={j} user={user} />
+              <JobCard
+                job={j}
+                isSaved={saved.has(j.id)}
+                onToggleSave={() => {
+                  setSaved((current) => {
+                    const next = new Set(current);
+                    if (next.has(j.id)) next.delete(j.id);
+                    else next.add(j.id);
+                    return next;
+                  });
+                }}
+                onRequestReferral={(job) => {
+                  const url = `/app/referrals?new=1&company=${encodeURIComponent(job.company)}&role=${encodeURIComponent(job.role)}${job.postedBy?.id ? `&referrerId=${encodeURIComponent(job.postedBy.id)}` : ""}`;
+                  nav(url);
+                }}
+              />
             </motion.div>
           ))}
+          {!isLoading && jobs.length === 0 && (
+            <div className="lg:col-span-2 text-center text-muted-foreground py-12 rounded-2xl border border-dashed border-border">
+              No jobs found.
+            </div>
+          )}
         </motion.div>
       </AnimatePresence>
     </div>
   );
 }
 
-function JobCard({ job: j, user }: { job: any; user: any }) {
+function JobCard({
+  job: j,
+  isSaved,
+  onToggleSave,
+  onRequestReferral,
+}: {
+  job: any;
+  isSaved: boolean;
+  onToggleSave: () => void;
+  onRequestReferral: (job: any) => void;
+}) {
   const [likes, setLikes] = React.useState(0);
   const [commentsCount, setCommentsCount] = React.useState(0);
   const [likedByMe, setLikedByMe] = React.useState(false);
@@ -165,7 +225,12 @@ function JobCard({ job: j, user }: { job: any; user: any }) {
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> {commentsCount}
                 </Button>
               </div>
-              <Button size="sm" onClick={() => toast.success(`Referral started for ${j.role}`)}><Briefcase className="size-3.5 mr-1.5" /> Request referral</Button>
+              <div className="flex items-center gap-1.5">
+                <Button size="sm" variant="outline" className="gap-1.5" onClick={onToggleSave}>
+                  <Bookmark className={`size-3.5 ${isSaved ? "fill-current" : ""}`} /> {isSaved ? "Saved" : "Save"}
+                </Button>
+                <Button size="sm" onClick={() => onRequestReferral(j)}><Briefcase className="size-3.5 mr-1.5" /> Request referral</Button>
+              </div>
             </div>
           </div>
         </div>

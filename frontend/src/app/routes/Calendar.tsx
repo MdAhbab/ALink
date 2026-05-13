@@ -1,10 +1,11 @@
 import * as React from "react";
+import { useNavigate } from "react-router";
 import { motion, AnimatePresence, LayoutGroup } from "motion/react";
 import {
   Calendar as CalendarIcon, ChevronLeft, ChevronRight, Clock, Video, MapPin,
   Plus, Check, RefreshCw, Trash2, ExternalLink,
 } from "lucide-react";
-import { apiRequest, getAuthToken } from "../lib/api";
+import { apiRequest, apiRequestAll, getAuthToken } from "../lib/api";
 import { Card } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
@@ -23,6 +24,7 @@ export type Booking = {
   duration: number;
   status: "upcoming" | "pending" | "completed" | "cancelled";
   meetingLink?: string;
+  startsAt?: string;
 };
 
 type DayItem =
@@ -31,6 +33,14 @@ type DayItem =
 
 function ymd(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+function localBookingDate(b: Booking) {
+  return b.startsAt ? ymd(new Date(b.startsAt)) : b.date;
+}
+function localBookingTime(b: Booking) {
+  if (!b.startsAt) return b.time;
+  const d = new Date(b.startsAt);
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 function startOfMonth(d: Date) { return new Date(d.getFullYear(), d.getMonth(), 1); }
 function addMonths(d: Date, n: number) { return new Date(d.getFullYear(), d.getMonth() + n, 1); }
@@ -44,25 +54,39 @@ const statusTone: Record<Booking["status"], string> = {
 };
 
 export default function CalendarRoute() {
+  const nav = useNavigate();
   const today = new Date();
   const [cursor, setCursor] = React.useState<Date>(startOfMonth(today));
   const [selected, setSelected] = React.useState<Date>(today);
   const [bookings, setBookings] = React.useState<Booking[]>([]);
   const [events, setEvents] = React.useState<any[]>([]);
   const [editing, setEditing] = React.useState<Booking | null>(null);
+  const [isLoading, setIsLoading] = React.useState(true);
 
   React.useEffect(() => {
+    const controller = new AbortController();
     const token = getAuthToken();
-    if (!token) return;
+    if (!token) {
+      setIsLoading(false);
+      return () => controller.abort();
+    }
+    setIsLoading(true);
     Promise.all([
-      apiRequest<Booking[]>("/bookings", { token }).then(setBookings).catch(() => {}),
-      apiRequest<any[]>("/events", { token }).then(setEvents).catch(() => {}),
-    ]);
+      apiRequestAll<Booking>("/bookings", { token, signal: controller.signal }).then(setBookings).catch(() => {}),
+      apiRequest<any[]>("/events", { token, signal: controller.signal }).then(setEvents).catch(() => {}),
+    ])
+      .catch((err: any) => {
+        if (err?.name !== "AbortError") {
+          toast.error("Failed to load calendar", { description: err.message });
+        }
+      })
+      .finally(() => setIsLoading(false));
+    return () => controller.abort();
   }, []);
 
   const items: DayItem[] = React.useMemo(() => {
     const b: DayItem[] = bookings.map((x) => ({
-      kind: "booking", id: x.id, date: x.date, time: x.time,
+      kind: "booking", id: x.id, date: localBookingDate(x), time: localBookingTime(x),
       title: x.topic, subtitle: `with ${x.with?.name} · ${x.duration}m`,
       status: x.status, ref: x,
     }));
@@ -118,7 +142,7 @@ export default function CalendarRoute() {
           <Button variant="outline" onClick={() => { setCursor(startOfMonth(today)); setSelected(today); }}>
             <CalendarIcon className="size-4" /> Today
           </Button>
-          <Button className="brand-gradient text-white border-0" onClick={() => toast.success("Open a session to invite an alum")}>
+          <Button className="brand-gradient text-white border-0" onClick={() => nav("/app/bookings?new=1")}>
             <Plus className="size-4" /> New session
           </Button>
         </div>
@@ -213,7 +237,15 @@ export default function CalendarRoute() {
           </div>
 
           <AnimatePresence mode="popLayout">
-            {selectedItems.length === 0 ? (
+            {isLoading ? (
+              <motion.div
+                key="loading"
+                initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+                className="rounded-2xl border border-dashed border-border p-8 text-center"
+              >
+                <p className="text-sm text-muted-foreground">Loading day timeline...</p>
+              </motion.div>
+            ) : selectedItems.length === 0 ? (
               <motion.div
                 key="empty"
                 initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
@@ -281,9 +313,14 @@ export default function CalendarRoute() {
           </span>
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {isLoading && (
+            <div className="col-span-full text-sm text-muted-foreground p-6 text-center border border-dashed border-border rounded-2xl">
+              Loading upcoming sessions...
+            </div>
+          )}
           {bookings
             .filter((b) => b.status === "upcoming" || b.status === "pending")
-            .sort((a, b) => a.date.localeCompare(b.date))
+            .sort((a, b) => localBookingDate(a).localeCompare(localBookingDate(b)) || localBookingTime(a).localeCompare(localBookingTime(b)))
             .map((b) => (
               <button
                 key={b.id}
@@ -299,13 +336,13 @@ export default function CalendarRoute() {
                 </div>
                 <div className="text-sm truncate">{b.topic}</div>
                 <div className="text-xs text-muted-foreground mt-1 flex items-center gap-2">
-                  <span className="inline-flex items-center gap-1"><CalendarIcon className="size-3" />{b.date}</span>
-                  <span className="inline-flex items-center gap-1"><Clock className="size-3" />{b.time}</span>
+                  <span className="inline-flex items-center gap-1"><CalendarIcon className="size-3" />{localBookingDate(b)}</span>
+                  <span className="inline-flex items-center gap-1"><Clock className="size-3" />{localBookingTime(b)}</span>
                 </div>
                 <Badge className={`mt-2 border ${statusTone[b.status]} capitalize`} variant="outline">{b.status}</Badge>
               </button>
             ))}
-          {bookings.filter((b) => b.status === "upcoming" || b.status === "pending").length === 0 && (
+          {!isLoading && bookings.filter((b) => b.status === "upcoming" || b.status === "pending").length === 0 && (
             <div className="col-span-full text-sm text-muted-foreground p-6 text-center border border-dashed border-border rounded-2xl">
               No active sessions. Book one from a profile or the finder.
             </div>
@@ -316,13 +353,35 @@ export default function CalendarRoute() {
       <BookingEditor
         booking={editing}
         onClose={() => setEditing(null)}
-        onSave={(patch) => {
-          if (editing) { updateBooking(editing.id, patch); toast.success("Session updated"); }
-          setEditing(null);
+        onSave={async (patch) => {
+          if (!editing) return;
+          const token = getAuthToken();
+          if (!token) return;
+          try {
+            const saved = await apiRequest<Booking>(`/bookings/${editing.id}`, {
+              method: "PATCH",
+              token,
+              body: patch,
+            });
+            updateBooking(editing.id, saved);
+            toast.success("Session updated");
+            setEditing(null);
+          } catch (err: any) {
+            toast.error("Failed to update session", { description: err.message });
+          }
         }}
-        onCancel={() => {
-          if (editing) { updateBooking(editing.id, { status: "cancelled" }); toast("Session cancelled"); }
-          setEditing(null);
+        onCancel={async () => {
+          if (!editing) return;
+          const token = getAuthToken();
+          if (!token) return;
+          try {
+            await apiRequest(`/bookings/${editing.id}`, { method: "DELETE", token });
+            updateBooking(editing.id, { status: "cancelled" });
+            toast("Session cancelled");
+            setEditing(null);
+          } catch (err: any) {
+            toast.error("Failed to cancel session", { description: err.message });
+          }
         }}
       />
     </div>
@@ -343,15 +402,16 @@ function BookingEditor({
 }: {
   booking: Booking | null;
   onClose: () => void;
-  onSave: (patch: Partial<Booking>) => void;
-  onCancel: () => void;
+  onSave: (patch: Partial<Booking>) => Promise<void>;
+  onCancel: () => Promise<void>;
 }) {
   const [date, setDate] = React.useState("");
   const [time, setTime] = React.useState("");
   const [topic, setTopic] = React.useState("");
+  const [isSaving, setIsSaving] = React.useState(false);
 
   React.useEffect(() => {
-    if (booking) { setDate(booking.date); setTime(booking.time); setTopic(booking.topic); }
+    if (booking) { setDate(localBookingDate(booking)); setTime(localBookingTime(booking)); setTopic(booking.topic); }
   }, [booking]);
 
   return (
@@ -385,13 +445,52 @@ function BookingEditor({
                     <Video className="size-4" /> Join <ExternalLink className="size-3" />
                   </a>
                 )}
-                <Button variant="outline" onClick={() => onSave({ status: "upcoming" })}>
+                <Button
+                  variant="outline"
+                  disabled={isSaving}
+                  onClick={async () => {
+                    setIsSaving(true);
+                    try {
+                      await onSave({ status: "upcoming" });
+                    } finally {
+                      setIsSaving(false);
+                    }
+                  }}
+                >
                   <Check className="size-4" /> Confirm
                 </Button>
-                <Button variant="outline" onClick={() => onSave({ date, time, topic })}>
+                <Button
+                  variant="outline"
+                  disabled={isSaving}
+                  onClick={async () => {
+                    setIsSaving(true);
+                    try {
+                      await onSave({
+                        date,
+                        time,
+                        topic,
+                        startsAt: new Date(`${date}T${time}`).toISOString(),
+                      });
+                    } finally {
+                      setIsSaving(false);
+                    }
+                  }}
+                >
                   <RefreshCw className="size-4" /> Reschedule
                 </Button>
-                <Button variant="outline" className="text-[var(--rose)] border-[var(--rose)]/40 hover:bg-[var(--rose)]/10" onClick={onCancel}>
+                <Button
+                  variant="outline"
+                  disabled={isSaving}
+                  className="text-[var(--rose)] border-[var(--rose)]/40 hover:bg-[var(--rose)]/10"
+                  onClick={async () => {
+                    setIsSaving(true);
+                    try {
+                      await onCancel();
+                    } finally {
+                      setIsSaving(false);
+                    }
+                  }}
+                >
                   <Trash2 className="size-4" /> Cancel
                 </Button>
               </div>

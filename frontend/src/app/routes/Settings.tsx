@@ -1,7 +1,6 @@
 import * as React from "react";
 import { motion } from "motion/react";
 import { useAuth } from "../lib/auth";
-import { apiRequest, getAuthToken } from "../lib/api";
 import { useTheme } from "../lib/theme";
 import { Card, CardContent } from "../components/ui/card";
 import { Switch } from "../components/ui/switch";
@@ -61,49 +60,21 @@ function loadPrefs(): Prefs {
 export default function Settings() {
   const { user, update, logout } = useAuth();
   const { theme } = useTheme();
-  const [prefs, setPrefs] = React.useState<Prefs>(loadPrefs);
-  const [prefsReady, setPrefsReady] = React.useState(false);
+  
+  // Use user.prefs from auth context combined with defaults
+  const [prefs, setPrefs] = React.useState<Prefs>({ ...defaultPrefs, ...(user?.prefs || {}) });
   const [draft, setDraft] = React.useState(user!);
 
   React.useEffect(() => {
-    const token = getAuthToken();
-    if (!token) {
-      setPrefsReady(true);
-      return;
-    }
-    let active = true;
-    apiRequest<Partial<Prefs>>("/settings/prefs", { token })
-      .then((remote) => {
-        if (!active) return;
-        setPrefs((existing) => ({ ...existing, ...remote }));
-      })
-      .catch(() => {
-        if (!active) return;
-      })
-      .finally(() => {
-        if (active) setPrefsReady(true);
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
+    if (!user) return;
+    setPrefs({ ...defaultPrefs, ...(user.prefs || {}) });
+    setDraft(user);
+  }, [user]);
 
+  // Save prefs locally on change to maintain local caching
   React.useEffect(() => {
     try { localStorage.setItem("alink:prefs", JSON.stringify(prefs)); } catch {}
   }, [prefs]);
-
-  React.useEffect(() => {
-    if (!prefsReady) return;
-    const token = getAuthToken();
-    if (!token) return;
-    apiRequest("/settings/prefs", {
-      method: "PATCH",
-      token,
-      body: prefs,
-    }).catch(() => {
-      toast.error("Could not sync settings with the server");
-    });
-  }, [prefs, prefsReady]);
 
   React.useEffect(() => {
     document.documentElement.dataset.density = prefs.density;
@@ -111,7 +82,13 @@ export default function Settings() {
 
   if (!user) return null;
 
-  const setP = <K extends keyof Prefs>(k: K, v: Prefs[K]) => setPrefs((p) => ({ ...p, [k]: v }));
+  const setP = <K extends keyof Prefs>(k: K, v: Prefs[K]) => {
+    setPrefs((p) => {
+      const next = { ...p, [k]: v };
+      update(k === "openToMentorship" ? { openToMentor: v as boolean, prefs: next } : { prefs: next });
+      return next;
+    });
+  };
 
   const saveAccount = () => { update(draft); toast.success("Account info updated"); };
 

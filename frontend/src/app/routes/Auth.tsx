@@ -11,12 +11,13 @@ import { Checkbox } from "../components/ui/checkbox";
 import { ThemeToggle } from "../components/shell/ThemeToggle";
 import { useAuth } from "../lib/auth";
 import {
-  GraduationCap, BriefcaseBusiness, ShieldCheck, ArrowRight, Sparkles,
+  GraduationCap, BriefcaseBusiness, ArrowRight, Sparkles,
   Plus, X, Linkedin, IdCard, Mail, School, ArrowLeft,
 } from "lucide-react";
 import { toast } from "sonner";
 
 export type Role = "student" | "alumni" | "admin";
+type RegisterRole = Exclude<Role, "admin">;
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const EDU_RE = /\.(edu|ac\.[a-z]{2,}|edu\.[a-z]{2,})$/i;
@@ -178,7 +179,7 @@ export function LoginPage() {
 export function RegisterPage() {
   const { user, register, isBusy } = useAuth();
   const nav = useNavigate();
-  const [role, setRole] = React.useState<Role>("student");
+  const [role, setRole] = React.useState<RegisterRole>("student");
   const [email, setEmail] = React.useState("");
   const [instEmail, setInstEmail] = React.useState("");
   const [secondary, setSecondary] = React.useState<string[]>([]);
@@ -245,16 +246,15 @@ export function RegisterPage() {
     }
   };
 
-  const idLabel = role === "alumni" ? "Alumni ID" : role === "admin" ? "Staff ID" : "Student ID";
+  const idLabel = role === "alumni" ? "Alumni ID" : "Student ID";
 
   return (
     <AuthFrame title="Join ALink" sub="Three roles, one beautifully human network.">
       <form onSubmit={submit} className="space-y-4">
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           {([
             { id: "student", label: "Student", icon: GraduationCap },
             { id: "alumni",  label: "Alumni",  icon: BriefcaseBusiness },
-            { id: "admin",   label: "Admin",   icon: ShieldCheck },
           ] as const).map((r) => (
             <button
               type="button"

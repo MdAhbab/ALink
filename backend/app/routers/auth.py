@@ -20,6 +20,8 @@ def _token_for(user: User) -> TokenOut:
 
 @router.post("/register", response_model=TokenOut, status_code=201)
 def register(body: RegisterIn, db: Session = Depends(get_db)) -> TokenOut:
+    if body.role == "admin":
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Admin accounts cannot self-register")
     if db.query(User).filter(User.email == body.email).first():
         raise HTTPException(status.HTTP_409_CONFLICT, "Email already registered")
     user = User(
