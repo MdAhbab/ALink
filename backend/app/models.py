@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from sqlalchemy import (
-    Boolean, Column, DateTime, ForeignKey, Integer, JSON, String, Text,
+    Boolean, Column, DateTime, Float, ForeignKey, Integer, JSON, String, Text,
     UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -32,6 +32,8 @@ class User(Base):
     major: Mapped[str] = mapped_column(String, default="")
     industry: Mapped[str | None] = mapped_column(String)
     graduation_year: Mapped[int | None] = mapped_column(Integer)
+    gpa: Mapped[float | None] = mapped_column(Float)
+    phone: Mapped[str | None] = mapped_column(String)
     avatar: Mapped[str] = mapped_column(String, default="")
     location: Mapped[str] = mapped_column(String, default="")
     bio: Mapped[str] = mapped_column(Text, default="")

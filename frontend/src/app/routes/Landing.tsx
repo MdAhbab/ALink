@@ -390,7 +390,7 @@ function RolesSection() {
                 </li>
               ))}
             </ul>
-            <div className="mt-6"><Link to="/register"><Button>Get started as {tab}</Button></Link></div>
+            <div className="mt-6"><Link to={`/register?role=${tab}`}><Button>Get started as {tab}</Button></Link></div>
           </div>
           <RoleVisual role={tab} />
         </motion.div>

@@ -1,6 +1,7 @@
 import * as React from "react";
 import { motion } from "motion/react";
 import { useAuth } from "../lib/auth";
+import { apiRequest, getAuthToken } from "../lib/api";
 import { useTheme } from "../lib/theme";
 import { Card, CardContent } from "../components/ui/card";
 import { Switch } from "../components/ui/switch";
@@ -63,7 +64,11 @@ export default function Settings() {
   
   // Use user.prefs from auth context combined with defaults
   const [prefs, setPrefs] = React.useState<Prefs>({ ...defaultPrefs, ...(user?.prefs || {}) });
-  const [draft, setDraft] = React.useState(user!);
+  const [draft, setDraft] = React.useState(user);
+  const [currentPassword, setCurrentPassword] = React.useState("");
+  const [newPassword, setNewPassword] = React.useState("");
+  const [confirmPassword, setConfirmPassword] = React.useState("");
+  const [isChangingPassword, setIsChangingPassword] = React.useState(false);
 
   React.useEffect(() => {
     if (!user) return;
@@ -90,10 +95,49 @@ export default function Settings() {
     });
   };
 
-  const saveAccount = () => { update(draft); toast.success("Account info updated"); };
+  const saveAccount = async () => {
+    if (!draft) return;
+    try {
+      await update(draft);
+      toast.success("Account info updated");
+    } catch (error: any) {
+      toast.error("Unable to update account", { description: error?.message || "Please try again." });
+    }
+  };
+
+  const changePassword = async () => {
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      toast.error("Please enter current password and confirm your new password");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error("New passwords do not match");
+      return;
+    }
+    if (newPassword.length < 8) {
+      toast.error("New password must be at least 8 characters");
+      return;
+    }
+    setIsChangingPassword(true);
+    try {
+      await apiRequest("/users/me/password", {
+        method: "POST",
+        token: getAuthToken() ?? undefined,
+        body: { currentPassword, newPassword },
+      });
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      toast.success("Password updated");
+    } catch (error: any) {
+      toast.error("Unable to update password", { description: error?.message || "Please check your current password." });
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
 
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6 max-w-4xl pb-24">
       <header>
         <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Preferences</div>
         <h1 className="font-serif text-4xl mt-1">Settings</h1>
@@ -140,20 +184,29 @@ export default function Settings() {
                 <Textarea rows={4} value={draft.bio} onChange={(e) => setDraft({ ...draft, bio: e.target.value })} />
               </Field>
             </div>
-            <div className="md:col-span-2 flex justify-end">
-              <Button onClick={saveAccount} className="gap-2"><Check className="size-4" /> Save account</Button>
-            </div>
           </CardContent></Card>
 
           <Card><CardContent className="p-6 space-y-3">
             <SectionTitle title="Contact" />
             <Field label={<><Mail className="size-3.5 inline mr-1.5" />University email</>}>
-              <Input defaultValue={`${user.name.split(" ")[0].toLowerCase()}@stanford.edu`} />
+              <Input
+                value={draft?.institutionEmail ?? ""}
+                onChange={(e) => setDraft((prev) => prev ? { ...prev, institutionEmail: e.target.value } : prev)}
+                placeholder="you@university.edu"
+              />
             </Field>
             <Field label={<><Phone className="size-3.5 inline mr-1.5" />Phone</>}>
-              <Input placeholder="+1 555 000 0000" />
+              <Input
+                value={draft?.phone ?? ""}
+                onChange={(e) => setDraft((prev) => prev ? { ...prev, phone: e.target.value } : prev)}
+                placeholder="+1 555 000 0000"
+              />
             </Field>
           </CardContent></Card>
+
+          <div className="flex justify-end">
+            <Button onClick={saveAccount} className="gap-2 w-full md:w-auto justify-center"><Check className="size-4" /> Save account</Button>
+          </div>
         </TabsContent>
 
         <TabsContent value="appearance" className="mt-4 space-y-4">
@@ -270,12 +323,39 @@ export default function Settings() {
             <Separator />
             <Field label={<><KeyRound className="size-3.5 inline mr-1.5" />Change password</>}>
               <div className="grid sm:grid-cols-2 gap-2">
-                <Input type="password" placeholder="Current password" />
-                <Input type="password" placeholder="New password" />
+                <Input
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="Current password"
+                />
+                <Input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="New password"
+                />
+              </div>
+              <div className="mt-2">
+                <Input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Confirm new password"
+                />
               </div>
               <div className="flex justify-end mt-2">
-                <Button variant="outline" onClick={() => toast.success("Password updated")}>Update password</Button>
+                <Button
+                  variant="outline"
+                  onClick={changePassword}
+                  disabled={isChangingPassword || !currentPassword || !newPassword || newPassword !== confirmPassword}
+                >
+                  Update password
+                </Button>
               </div>
+              {newPassword && confirmPassword && newPassword !== confirmPassword && (
+                <p className="text-sm text-[var(--rose)] mt-2">Passwords do not match.</p>
+              )}
             </Field>
           </CardContent></Card>
 

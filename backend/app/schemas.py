@@ -33,6 +33,8 @@ class UserPublic(ORMBase):
     major: str = ""
     industry: Optional[str] = None
     graduation_year: Optional[int] = Field(default=None, alias="graduationYear")
+    gpa: Optional[float] = None
+    phone: Optional[str] = None
     avatar: str = ""
     location: str = ""
     bio: str = ""
@@ -46,6 +48,7 @@ class UserMe(UserPublic):
     institution_email: Optional[EmailStr] = Field(default=None, alias="institutionEmail")
     secondary_institutions: list[str] = Field(default_factory=list, alias="secondaryInstitutions")
     linkedin: Optional[str] = None
+    phone: Optional[str] = None
     prefs: dict = {}
 
 
@@ -59,6 +62,8 @@ class UserUpdate(BaseModel):
     major: Optional[str] = None
     industry: Optional[str] = None
     graduation_year: Optional[int] = Field(default=None, alias="graduationYear")
+    gpa: Optional[float] = None
+    phone: Optional[str] = None
     avatar: Optional[str] = None
     location: Optional[str] = None
     bio: Optional[str] = None
@@ -93,6 +98,11 @@ class RegisterIn(BaseModel):
 class LoginIn(BaseModel):
     email: EmailStr
     password: str
+
+
+class PasswordChange(BaseModel):
+    current_password: str = Field(alias="currentPassword")
+    new_password: str = Field(min_length=8, alias="newPassword")
 
 
 class TokenOut(BaseModel):

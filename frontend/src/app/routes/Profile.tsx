@@ -22,24 +22,33 @@ import { AvatarPicker } from "../components/profile/AvatarPicker";
 export default function Profile() {
   const { user, update } = useAuth();
   const [editing, setEditing] = React.useState(false);
-  const [draft, setDraft] = React.useState(user!);
+  const [draft, setDraft] = React.useState(user);
   const [skillDraft, setSkillDraft] = React.useState("");
   const [avatarOpen, setAvatarOpen] = React.useState(false);
   const coverRef = React.useRef<HTMLDivElement | null>(null);
+
+  React.useEffect(() => {
+    if (user) setDraft(user);
+  }, [user]);
   const reduce = useReducedMotion();
   const { scrollYProgress } = useScroll({ target: coverRef, offset: ["start start", "end start"] });
   const coverY = useTransform(scrollYProgress, [0, 1], [0, reduce ? 0 : 40]);
   const shineX = useTransform(scrollYProgress, [0, 1], [0, reduce ? 0 : 60]);
   const blobY = useTransform(scrollYProgress, [0, 1], [0, reduce ? 0 : -30]);
-  if (!user) return null;
+  if (!user || !draft) return null;
 
-  const save = () => {
-    update(draft);
-    setEditing(false);
-    toast.success("Profile updated", { description: "Your changes are visible to others." });
+  const save = async () => {
+    if (!draft) return;
+    try {
+      await update(draft);
+      setEditing(false);
+      toast.success("Profile updated", { description: "Your changes are visible to others." });
+    } catch (error: any) {
+      toast.error("Failed to save profile", { description: error?.message || "Please try again." });
+    }
   };
 
-  const cancel = () => { setDraft(user); setEditing(false); };
+  const cancel = () => { if (user) setDraft(user); setEditing(false); };
 
   const addSkill = () => {
     const v = skillDraft.trim();
@@ -192,7 +201,20 @@ export default function Profile() {
                 )}
               </Field>
               <Field label="GPA (private)">
-                {editing ? <Input placeholder="3.8" /> : <Value>3.8</Value>}
+                {editing ? (
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={draft.gpa ?? ""}
+                    onChange={(e) => {
+                      const parsed = e.target.value === "" ? undefined : Number(e.target.value);
+                      setDraft({ ...draft, gpa: Number.isNaN(parsed) ? undefined : parsed });
+                    }}
+                    placeholder="3.8"
+                  />
+                ) : (
+                  <Value>{user.gpa ?? "—"}</Value>
+                )}
               </Field>
             </CardContent>
           </Card>
