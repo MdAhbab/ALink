@@ -1,17 +1,23 @@
 import * as React from "react";
 import { motion } from "motion/react";
+import { useAuth } from "../lib/auth";
 import { apiRequest, apiRequestAll, getAuthToken } from "../lib/api";
 import { Avatar, AvatarImage, AvatarFallback } from "../components/ui/avatar";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
-import { Calendar, Sparkles, Users, Clock } from "lucide-react";
+import { Calendar, Sparkles, Users, Clock, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
 
 export default function Mentorship() {
+  const { user } = useAuth();
   const [mentorPrograms, setMentorPrograms] = React.useState<any[]>([]);
   const [people, setPeople] = React.useState<any[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
+  const [isOpen, setIsOpen] = React.useState(false);
 
   React.useEffect(() => {
     const controller = new AbortController();
@@ -32,11 +38,84 @@ export default function Mentorship() {
   }, []);
   return (
     <div className="space-y-6">
-      <div className="rounded-3xl border border-border bg-card p-6 md:p-8 relative overflow-hidden">
+      <div className="rounded-3xl border border-border bg-card p-6 md:p-8 relative overflow-hidden flex flex-col md:flex-row md:items-end md:justify-between gap-4">
         <div aria-hidden className="absolute -top-16 -left-10 size-60 rounded-full opacity-20 blur-3xl" style={{ background: "var(--amber)" }} />
-        <Badge variant="secondary" className="rounded-full"><Sparkles className="size-3" /> Curated programs</Badge>
-        <h1 className="font-serif text-4xl md:text-5xl mt-3">Mentorship programs</h1>
-        <p className="text-muted-foreground">Long-arc cohorts, office hours, and one-on-one tracks led by verified alumni.</p>
+        <div className="relative z-10 space-y-1">
+          <Badge variant="secondary" className="rounded-full"><Sparkles className="size-3" /> Curated programs</Badge>
+          <h1 className="font-serif text-4xl md:text-5xl mt-3">Mentorship programs</h1>
+          <p className="text-muted-foreground">Long-arc cohorts, office hours, and one-on-one tracks led by verified alumni.</p>
+        </div>
+        {(user?.role === "admin" || user?.role === "alumni") && (
+          <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+              <Button className="gap-2 relative z-10"><Plus className="size-4" /> Create program</Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Create mentorship program</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={async (e) => {
+                e.preventDefault();
+                const fd = new FormData(e.currentTarget);
+                const focusInput = String(fd.get("focus") || "");
+                const focusList = focusInput.split(",").map(f => f.trim()).filter(Boolean);
+                try {
+                  const newProg = await apiRequest<any>("/mentorship/programs", {
+                    method: "POST",
+                    token: getAuthToken() || undefined,
+                    body: {
+                      title: fd.get("title"),
+                      duration: fd.get("duration"),
+                      cadence: fd.get("cadence"),
+                      spots: Number(fd.get("spots")) || 0,
+                      focus: focusList,
+                      price: fd.get("price"),
+                    }
+                  });
+                  toast.success("Mentorship program created successfully");
+                  setMentorPrograms(prev => [newProg, ...prev]);
+                  setIsOpen(false);
+                } catch (err: any) {
+                  toast.error("Failed to create program", { description: err.message });
+                }
+              }} className="space-y-4 mt-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="title">Program Title</Label>
+                  <Input id="title" name="title" placeholder="e.g. Systems Design Masterclass" required />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="duration">Duration</Label>
+                    <Input id="duration" name="duration" placeholder="e.g. 3 months" required />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="cadence">Meeting Cadence</Label>
+                    <Input id="cadence" name="cadence" placeholder="e.g. Weekly on Thu" required />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="spots">Max Spots</Label>
+                    <Input id="spots" name="spots" type="number" min="1" defaultValue="5" required />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="price">Price Model</Label>
+                    <select id="price" name="price" className="w-full h-10 px-3 rounded-xl border border-border bg-card text-sm">
+                      <option value="Free">Free</option>
+                      <option value="Paid">Paid</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="focus">Focus Areas</Label>
+                  <Input id="focus" name="focus" placeholder="e.g. Design, Frontend, Careers" required />
+                  <p className="text-[10px] text-muted-foreground">Separate multiple focus areas with commas.</p>
+                </div>
+                <Button type="submit" className="w-full">Create Cohort</Button>
+              </form>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">

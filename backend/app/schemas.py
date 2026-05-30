@@ -263,6 +263,15 @@ class JobCommentOut(ORMBase):
 
 
 # ---------- Mentorship ----------------------------------------------------- #
+class MentorProgramIn(BaseModel):
+    title: str
+    duration: str
+    cadence: str
+    spots: int
+    focus: list[str]
+    price: Literal["Free", "Paid"] = "Free"
+
+
 class MentorProgramOut(ORMBase):
     id: str
     title: str
