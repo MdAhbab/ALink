@@ -9,6 +9,7 @@ import { Badge } from "../ui/badge";
 import { aiSuggestions, type ChatThread, type ChatMessage } from "../../lib/chat";
 import { apiRequest, getAuthToken } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
+import { toast } from "sonner";
 
 const spring = { type: "spring", stiffness: 260, damping: 28, mass: 0.7 } as const;
 
@@ -401,10 +402,18 @@ function ThreadView({
         </button>
         {!thread.isAI && !thread.isGroup && (
           <>
-            <button className="size-8 grid place-items-center rounded-full hover:bg-muted text-muted-foreground" aria-label="Call">
+            <button
+              onClick={() => toast.info("Direct calls are currently disabled in local sandbox mode.")}
+              className="size-8 grid place-items-center rounded-full hover:bg-muted text-muted-foreground"
+              aria-label="Call"
+            >
               <Phone className="size-4" />
             </button>
-            <button className="size-8 grid place-items-center rounded-full hover:bg-muted text-muted-foreground" aria-label="Video">
+            <button
+              onClick={() => toast.info("Direct calls are currently disabled in local sandbox mode.")}
+              className="size-8 grid place-items-center rounded-full hover:bg-muted text-muted-foreground"
+              aria-label="Video"
+            >
               <Video className="size-4" />
             </button>
           </>

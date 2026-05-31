@@ -8,7 +8,11 @@ import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent } from "../../components/ui/card";
 import { Progress } from "../../components/ui/progress";
-import { Calendar, Compass, Briefcase, BookOpen, Sparkles, Target, Trophy, ChevronRight, Flame, Users, Award } from "lucide-react";
+import { Calendar, Compass, Briefcase, BookOpen, Sparkles, Target, Trophy, ChevronRight, Flame, Users, Award, Trash2, Plus } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "../../components/ui/dialog";
+import { Input } from "../../components/ui/input";
+import { Label } from "../../components/ui/label";
+import { toast } from "sonner";
 
 const stagger = { hidden: {}, visible: { transition: { staggerChildren: 0.05 } } };
 const item = { hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0, transition: { duration: 0.3 } } };
@@ -26,6 +30,10 @@ export default function StudentDashboard() {
   const [connections, setConnections] = React.useState<any[]>([]);
   const [mentorPrograms, setMentorPrograms] = React.useState<any[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
+  const [goalsOpen, setGoalsOpen] = React.useState(false);
+  const [prepOpen, setPrepOpen] = React.useState(false);
+  const [newGoalLabel, setNewGoalLabel] = React.useState("");
+  const [newGoalProgress, setNewGoalProgress] = React.useState(0);
 
   React.useEffect(() => {
     const controller = new AbortController();
@@ -48,6 +56,9 @@ export default function StudentDashboard() {
   }, []);
 
   const upcoming = bookings.find(b => b.status === "upcoming");
+  const earnedBadges = achievements.filter(a => a.earnedAt).length;
+  const calculatedLevel = Math.max(1, Math.floor(earnedBadges / 2) + 1);
+  const levelTitle = calculatedLevel <= 1 ? "Novice" : calculatedLevel === 2 ? "Explorer" : calculatedLevel === 3 ? "Networker" : calculatedLevel === 4 ? "Connector" : "Master Mentor";
   const heroRef = React.useRef<HTMLDivElement | null>(null);
   const reduce = useReducedMotion();
   const { scrollYProgress } = useScroll({ target: heroRef, offset: ["start start", "end start"] });
@@ -96,7 +107,7 @@ export default function StudentDashboard() {
           { l: "Connections", v: connections.length, sub: "In your network", tone: "var(--brand-500)" },
           { l: "Sessions booked", v: bookings.length, sub: "Lifetime sessions", tone: "var(--amber)" },
           { l: "Active referrals", v: referrals.length, sub: "Pending/Forwarded", tone: "var(--mint)" },
-          { l: "ALink XP", v: activity.length * 10, sub: `Level ${Math.max(1, Math.floor(activity.length / 5))} · Networker`, tone: "var(--rose)" },
+          { l: "ALink XP", v: earnedBadges * 250, sub: `Level ${calculatedLevel} · ${levelTitle}`, tone: "var(--rose)" },
         ].map((s) => (
           <Card key={s.l} className="relative overflow-hidden">
             <div className="absolute inset-x-0 top-0 h-1" style={{ background: s.tone }} />
@@ -125,7 +136,103 @@ export default function StudentDashboard() {
               </div>
             )) : <p className="text-sm text-muted-foreground mt-4">No goals set for this semester.</p>}
           </div>
-          <Button variant="ghost" size="sm" className="mt-4 gap-1">Adjust goals <ChevronRight className="size-3" /></Button>
+          <Dialog open={goalsOpen} onOpenChange={setGoalsOpen}>
+            <DialogTrigger asChild>
+              <Button variant="ghost" size="sm" className="mt-4 gap-1">Adjust goals <ChevronRight className="size-3" /></Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Adjust Semester Goals</DialogTitle>
+                <DialogDescription>List, create, or remove target milestones.</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-2 my-2 max-h-[220px] overflow-y-auto pr-1">
+                {studentGoals.map(g => (
+                  <div key={g.id} className="flex items-center justify-between p-2.5 rounded-xl border border-border bg-muted/30">
+                    <div className="flex-1 min-w-0 pr-3">
+                      <div className="text-sm font-medium truncate">{g.label}</div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Progress value={g.progress} className="h-1 flex-1" />
+                        <span className="text-[10px] text-muted-foreground whitespace-nowrap">{g.progress}%</span>
+                      </div>
+                    </div>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="size-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
+                      onClick={async () => {
+                        try {
+                          await apiRequest(`/goals/${g.id}`, {
+                            method: "DELETE",
+                            token: getAuthToken() || undefined,
+                          });
+                          toast.success("Goal deleted");
+                          setStudentGoals(prev => prev.filter(x => x.id !== g.id));
+                        } catch (err: any) {
+                          toast.error("Failed to delete goal", { description: err.message });
+                        }
+                      }}
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </div>
+                ))}
+                {studentGoals.length === 0 && (
+                  <div className="text-center text-xs text-muted-foreground py-4">No goals currently defined.</div>
+                )}
+              </div>
+              <div className="border-t border-border pt-3.5 space-y-3">
+                <h4 className="text-xs font-semibold">Add New Goal</h4>
+                <div className="grid grid-cols-[1fr_80px] gap-2 items-end">
+                  <div className="space-y-1">
+                    <Label htmlFor="goal-label" className="text-[10px] text-muted-foreground">Goal Milestone Description</Label>
+                    <Input
+                      id="goal-label"
+                      placeholder="e.g. Find research mentor"
+                      value={newGoalLabel}
+                      onChange={e => setNewGoalLabel(e.target.value)}
+                      className="h-9"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="goal-progress" className="text-[10px] text-muted-foreground">Progress %</Label>
+                    <Input
+                      id="goal-progress"
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={newGoalProgress}
+                      onChange={e => setNewGoalProgress(Math.min(100, Math.max(0, Number(e.target.value) || 0)))}
+                      className="h-9"
+                    />
+                  </div>
+                </div>
+                <Button
+                  className="w-full h-9 gap-1.5"
+                  disabled={!newGoalLabel.trim()}
+                  onClick={async () => {
+                    try {
+                      const added = await apiRequest<any>("/goals", {
+                        method: "POST",
+                        token: getAuthToken() || undefined,
+                        body: {
+                          label: newGoalLabel.trim(),
+                          progress: newGoalProgress,
+                        }
+                      });
+                      toast.success("Goal created successfully");
+                      setStudentGoals(prev => [...prev, added]);
+                      setNewGoalLabel("");
+                      setNewGoalProgress(0);
+                    } catch (err: any) {
+                      toast.error("Failed to create goal", { description: err.message });
+                    }
+                  }}
+                >
+                  <Plus className="size-4" /> Create Goal
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </motion.div>
 
         {/* Next session big card */}
@@ -148,8 +255,59 @@ export default function StudentDashboard() {
                 </div>
               </div>
               <div className="flex gap-2">
-                <Button>Join meeting</Button>
-                <Button variant="outline">Prep notes</Button>
+                <Button
+                  onClick={() => {
+                    const url = upcoming.meetingLink || upcoming.meeting_link || "https://meet.google.com/abc-defg-hij";
+                    window.open(url, "_blank");
+                  }}
+                >
+                  Join meeting
+                </Button>
+                <Dialog open={prepOpen} onOpenChange={setPrepOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline">Prep notes</Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                      <DialogTitle>Session Preparation Notes</DialogTitle>
+                      <DialogDescription>
+                        Milestones and checklist for your upcoming session on <span className="font-semibold text-foreground">"{upcoming.topic}"</span> with {upcoming.with.name}.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 mt-2">
+                      <div className="p-3.5 rounded-xl border border-border bg-muted/40 space-y-1.5">
+                        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                          <Target className="size-3.5" /> Recommended Discussion Topics
+                        </h4>
+                        <ul className="text-xs space-y-1.5 text-muted-foreground list-disc pl-4">
+                          <li>Ask about their transition from university to their role at {upcoming.with.company || "their company"}.</li>
+                          <li>Inquire about the most valued skill sets in their current team's tech stack.</li>
+                          <li>Seek advice on finding and securing full-time internship placements.</li>
+                        </ul>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <h4 className="text-xs font-semibold flex items-center gap-1.5 text-foreground">
+                          <Award className="size-3.5 text-[var(--brand-500)]" /> Your Prep Checklist
+                        </h4>
+                        <div className="space-y-2 text-xs text-muted-foreground">
+                          <div className="flex items-center gap-2">
+                            <input type="checkbox" defaultChecked className="accent-[var(--brand-500)] rounded size-3.5 cursor-not-allowed" readOnly />
+                            <span className="line-through">Review mentor's professional summary</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <input type="checkbox" className="accent-[var(--brand-500)] rounded size-3.5" />
+                            <span>Locate and prepare your resume share link</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <input type="checkbox" className="accent-[var(--brand-500)] rounded size-3.5" />
+                            <span>Prepare a notepad or document to record key takeaways</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </div>
             </div>
           ) : <div className="p-5 text-sm text-muted-foreground">No upcoming sessions — explore mentor programs below.</div>}

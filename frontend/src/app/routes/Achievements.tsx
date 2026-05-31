@@ -16,6 +16,7 @@ const rarityColor: Record<string, string> = {
 
 export default function Achievements() {
   const [achievements, setAchievements] = React.useState<any[]>([]);
+  const [goalsCount, setGoalsCount] = React.useState(0);
   const [isLoading, setIsLoading] = React.useState(true);
 
   React.useEffect(() => {
@@ -23,11 +24,17 @@ export default function Achievements() {
     const token = getAuthToken();
     if (!token) return;
     setIsLoading(true);
-    apiRequest<any[]>("/achievements", { token, signal: controller.signal })
-      .then(setAchievements)
+    Promise.all([
+      apiRequest<any[]>("/achievements", { token, signal: controller.signal }),
+      apiRequest<any[]>("/goals", { token, signal: controller.signal })
+    ])
+      .then(([achData, goalsData]) => {
+        setAchievements(achData);
+        setGoalsCount(goalsData.length);
+      })
       .catch((err: any) => {
         if (err?.name !== "AbortError") {
-          toast.error("Failed to load achievements", { description: err.message });
+          toast.error("Failed to load achievements data", { description: err.message });
         }
       })
       .finally(() => setIsLoading(false));
@@ -36,23 +43,39 @@ export default function Achievements() {
 
   const earned = achievements.filter(a => a.earnedAt).length;
   const total = achievements.length || 1;
+  
+  // Calculate Level and XP dynamically
+  const level = Math.max(1, Math.floor(earned / 2) + 1);
+  const totalXp = earned * 250;
+  const xpPerLevel = 500;
+  const currentLevelXp = totalXp % xpPerLevel;
+  const xpProgressPercent = Math.round((currentLevelXp / xpPerLevel) * 100);
+  
+  const getLevelTitle = (lvl: number) => {
+    if (lvl <= 1) return "Novice";
+    if (lvl === 2) return "Explorer";
+    if (lvl === 3) return "Networker";
+    if (lvl === 4) return "Connector";
+    return "Master Mentor";
+  };
+
   return (
     <div className="space-y-6">
       <div className="rounded-3xl border border-border p-6 md:p-8 text-white relative overflow-hidden" style={{ background: "linear-gradient(135deg, #1C1142, #6743EE 55%, #F5B461)" }}>
         <div aria-hidden className="absolute inset-0 bg-[radial-gradient(60%_50%_at_70%_20%,rgba(255,255,255,0.25),transparent)]" />
         <div className="relative grid md:grid-cols-3 gap-5 items-center">
           <div className="md:col-span-2">
-            <Badge className="rounded-full bg-white/15 text-white border-white/20"><Trophy className="size-3" /> Level 7 · Networker</Badge>
+            <Badge className="rounded-full bg-white/15 text-white border-white/20"><Trophy className="size-3" /> Level {level} · {getLevelTitle(level)}</Badge>
             <h1 className="font-serif text-4xl md:text-5xl mt-3">Your ALink journey</h1>
             <p className="text-white/85 mt-2">Earn badges by connecting, mentoring, and giving back. {earned} of {total} unlocked.</p>
             <div className="mt-4">
-              <div className="flex justify-between text-xs text-white/85"><span>XP to Level 8</span><span>1,240 / 1,500</span></div>
-              <Progress value={82} className="h-2 mt-1.5 bg-white/15" />
+              <div className="flex justify-between text-xs text-white/85"><span>XP to Level {level + 1}</span><span>{currentLevelXp} / {xpPerLevel}</span></div>
+              <Progress value={xpProgressPercent} className="h-2 mt-1.5 bg-white/15" />
             </div>
           </div>
           <div className="flex justify-center gap-2 text-center">
             <Stat icon={Flame} label="Streak" value="7d" />
-            <Stat icon={Target} label="Goals" value="3" />
+            <Stat icon={Target} label="Goals" value={String(goalsCount)} />
             <Stat icon={Trophy} label="Badges" value={`${earned}`} />
           </div>
         </div>
