@@ -84,26 +84,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const email = `${role}@alink.app`;
       const password = "password123";
       await login(email, password);
-    } catch {
-      const fallbackUser: Person = {
-        id: `u_demo_${role}`,
-        name: `Demo ${role.toUpperCase()}`,
-        email: `${role}@alink.app`,
-        role,
-        title: role === "alumni" ? "Software Architect" : "Student",
-        university: "Stanford University",
-        major: "Computer Science",
-        avatar: `https://api.dicebear.com/9.x/notionists/svg?seed=Demo${role}`,
-        location: "San Francisco, CA",
-        bio: "ALink Demo Account",
-        verified: true,
-        skills: ["React", "Python", "SQL"],
-        openToMentor: true,
-        secondaryInstitutions: [],
-      };
-      localStorage.setItem("alink:token", "demo-token-123");
-      localStorage.setItem("alink:user", JSON.stringify(fallbackUser));
-      setUser(fallbackUser);
     } finally {
       setIsBusy(false);
     }
