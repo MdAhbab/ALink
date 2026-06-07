@@ -333,8 +333,7 @@ function VerificationPanel({ user }: { user: any }) {
       // 2. Upload ID card
       const idFormData = new FormData();
       idFormData.append("file", idCardFile);
-      const apiBase = import.meta.env.VITE_API_BASE || "http://localhost:8000";
-      const idUploadRes = await fetch(`${apiBase}/api/uploads/id-card`, {
+      const idUploadRes = await fetch("http://localhost:8000/api/uploads/id-card", {
         method: "POST",
         headers: { "Authorization": `Bearer ${token}` },
         body: idFormData
@@ -345,7 +344,7 @@ function VerificationPanel({ user }: { user: any }) {
       // 3. Upload Resume
       const resumeFormData = new FormData();
       resumeFormData.append("file", resumeFile);
-      const resumeUploadRes = await fetch(`${apiBase}/api/uploads/resume`, {
+      const resumeUploadRes = await fetch("http://localhost:8000/api/uploads/resume", {
         method: "POST",
         headers: { "Authorization": `Bearer ${token}` },
         body: resumeFormData

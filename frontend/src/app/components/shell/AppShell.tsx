@@ -54,7 +54,7 @@ const SIDEBAR_OPEN = 260;
 const SIDEBAR_CLOSED = 76;
 
 export function AppShell() {
-  const { user, logout } = useAuth();
+  const { user, logout, setRole } = useAuth();
   const nav = useNavigate();
   const loc = useLocation();
   const [paletteOpen, setPaletteOpen] = React.useState(false);
