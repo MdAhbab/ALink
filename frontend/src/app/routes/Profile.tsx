@@ -16,7 +16,7 @@ import {
   GraduationCap, Linkedin, Github, Globe, Mail, Sparkles, UploadCloud,
 } from "lucide-react";
 import { toast } from "sonner";
-import { apiRequest, getAuthToken } from "../lib/api";
+import { apiRequest, apiUpload, getAuthToken } from "../lib/api";
 import { AvatarPicker } from "../components/profile/AvatarPicker";
 
 export default function Profile() {
@@ -355,24 +355,12 @@ function VerificationPanel({ user }: { user: any }) {
       // 2. Upload ID card
       const idFormData = new FormData();
       idFormData.append("file", idCardFile);
-      const idUploadRes = await fetch("http://localhost:8000/api/uploads/id-card", {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${token}` },
-        body: idFormData
-      });
-      if (!idUploadRes.ok) throw new Error("ID Card upload failed");
-      const idUploadData = await idUploadRes.json();
+      const idUploadData = await apiUpload<any>("/uploads/id-card", idFormData, { token });
 
       // 3. Upload Resume
       const resumeFormData = new FormData();
       resumeFormData.append("file", resumeFile);
-      const resumeUploadRes = await fetch("http://localhost:8000/api/uploads/resume", {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${token}` },
-        body: resumeFormData
-      });
-      if (!resumeUploadRes.ok) throw new Error("Resume upload failed");
-      const resumeUploadData = await resumeUploadRes.json();
+      const resumeUploadData = await apiUpload<any>("/uploads/resume", resumeFormData, { token });
 
       // 4. Submit
       await apiRequest(`/verifications/${vid}/submit`, {

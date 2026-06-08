@@ -1,4 +1,44 @@
-const API_BASE = "http://127.0.0.1:8000";
+// In production the SPA is served same-origin behind nginx, which proxies
+// `/api` → the FastAPI backend, so VITE_API_URL is set to `https://aLink.ahbab.dev/api`.
+// Locally it falls back to the dev backend.
+const API_BASE: string =
+  (import.meta as any)?.env?.VITE_API_URL?.replace(/\/$/, "") || "http://127.0.0.1:8000";
+
+export function apiUrl(path: string): string {
+  return `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`;
+}
+
+/** Upload one or more files as multipart/form-data through the shared API base. */
+export async function apiUpload<T = any>(
+  path: string,
+  formData: FormData,
+  options: { token?: string; signal?: AbortSignal } = {}
+): Promise<T> {
+  const token = options.token || getAuthToken();
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const res = await fetch(apiUrl(path), {
+    method: "POST",
+    headers, // do NOT set Content-Type — the browser sets the multipart boundary
+    body: formData,
+    signal: options.signal,
+  });
+
+  if (!res.ok) {
+    let errMsg = `Request failed with status ${res.status}`;
+    try {
+      const errorData = await res.json();
+      errMsg = errorData.detail || errorData.message || errMsg;
+    } catch {}
+    throw new Error(errMsg);
+  }
+  try {
+    return (await res.json()) as T;
+  } catch {
+    return {} as T;
+  }
+}
 
 export function getAuthToken(): string | null {
   try {

@@ -7,8 +7,10 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..deps import get_current_user, require_admin
+from ..events import publish, EventType
 from ..models import Job, JobComment, JobLike, User
-from ..schemas import JobCommentIn, JobCommentOut, JobEngagementOut, JobIn, JobOut
+from ..ml.recommenders import recommend_jobs
+from ..schemas import JobCommentIn, JobCommentOut, JobEngagementOut, JobIn, JobOut, JobRecOut
 
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
@@ -88,7 +90,29 @@ def create_job(
     db.add(j)
     db.commit()
     db.refresh(j)
+    publish(EventType.JOB_POSTED, {
+        "job_id": j.id,
+        "posted_by_id": j.posted_by_id,
+        "company": j.company,
+        "role": j.role,
+    })
     return j
+
+
+@router.get("/recommended", response_model=list[JobRecOut])
+def recommended_jobs(
+    limit: int = Query(default=12, ge=1, le=50),
+    db: Session = Depends(get_db),
+    current: User = Depends(get_current_user),
+) -> list[dict]:
+    recs = recommend_jobs(db, current, limit=limit)
+    results = []
+    for job, score, matched in recs:
+        base = JobOut.model_validate(job).model_dump(by_alias=True)
+        base["matchScore"] = score
+        base["matchedSkills"] = matched
+        results.append(base)
+    return results
 
 
 @router.get("/{job_id}", response_model=JobOut)
@@ -104,6 +128,12 @@ def approve_job(job_id: str, db: Session = Depends(get_db), _: User = Depends(re
     j.status = "live"
     db.commit()
     db.refresh(j)
+    publish(EventType.JOB_APPROVED, {
+        "job_id": j.id,
+        "posted_by_id": j.posted_by_id,
+        "company": j.company,
+        "role": j.role,
+    })
     return j
 
 

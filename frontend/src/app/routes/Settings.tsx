@@ -120,11 +120,16 @@ export default function Settings() {
     }
     setIsChangingPassword(true);
     try {
-      await apiRequest("/users/me/password", {
+      const res = await apiRequest<any>("/users/me/password", {
         method: "POST",
         token: getAuthToken() ?? undefined,
         body: { currentPassword, newPassword },
       });
+      // The server rotates the token version on password change; store the
+      // fresh token it returns so the current session stays authenticated.
+      if (res?.access_token) {
+        try { localStorage.setItem("alink:token", res.access_token); } catch {}
+      }
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");

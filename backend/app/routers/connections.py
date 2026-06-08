@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..deps import get_current_user
+from ..events import publish, EventType
 from ..models import Connection, ConnectionRequest, User
 from ..schemas import ConnectionRequestIn, ConnectionRequestOut, UserPublic
 
@@ -77,6 +78,13 @@ def send_request(
     db.add(req)
     db.commit()
     db.refresh(req)
+    publish(EventType.CONNECTION_REQUESTED, {
+        "from_id": current.id,
+        "from_name": current.name,
+        "from_title": current.title,
+        "to_id": body.to_id,
+        "message": body.message,
+    })
     return req
 
 
@@ -95,6 +103,12 @@ def accept_request(
     if not exists:
         db.add(Connection(id=f"cn_{uuid.uuid4().hex[:10]}", a_id=a, b_id=b))
     db.commit()
+    publish(EventType.CONNECTION_ACCEPTED, {
+        "requester_id": req.from_id,
+        "acceptor_id": current.id,
+        "acceptor_name": current.name,
+        "acceptor_title": current.title,
+    })
     return db.get(User, req.from_id)
 
 

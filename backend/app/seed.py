@@ -98,8 +98,30 @@ def seed(reset: bool = True) -> None:
         db.add(User(
             **ADMIN,
             email="admin@alink.app",
-            password_hash=hash_password("password"),
+            password_hash=hash_password("password123"),
             avatar=avatar("Admin"),
+        ))
+
+        # --- Canonical demo accounts (match frontend "Try the demo") -------- #
+        # student@alink.app / alumni@alink.app / admin@alink.app — password123
+        db.add(User(
+            id="demo_student", name="Demo Student", role="student",
+            title="B.S. Junior, Computer Science", university="Stanford University",
+            major="Computer Science", graduation_year=2027, location="Palo Alto, CA",
+            bio="Exploring ALink as a student. Looking for SWE internships.",
+            skills=["Python", "React", "SQL"],
+            email="student@alink.app", institution_email="student@alink.app",
+            password_hash=hash_password("password123"), avatar=avatar("Demo Student"),
+        ))
+        db.add(User(
+            id="demo_alumni", name="Demo Alumni", role="alumni",
+            title="Software Architect", company="ALink", university="Stanford University",
+            major="Computer Science", industry="Software", graduation_year=2016,
+            location="San Francisco, CA", verified=True, open_to_mentor=True,
+            bio="Exploring ALink as an alumnus. Happy to mentor and post roles.",
+            skills=["System Design", "Mentoring", "Python"],
+            email="alumni@alink.app", password_hash=hash_password("password123"),
+            avatar=avatar("Demo Alumni"),
         ))
         db.commit()
 
@@ -258,6 +280,7 @@ def seed(reset: bool = True) -> None:
                         rarity="Rare", emoji="💛"),
         ]
         db.add_all(ach)
+        db.flush()  # persist achievements before user_achievements (FK parent-first)
         db.add_all([
             UserAchievement(id=f"ua_{uuid.uuid4().hex[:8]}", user_id="me",
                             achievement_id="ac1", earned_at="2026-04-12"),
@@ -293,6 +316,7 @@ def seed(reset: bool = True) -> None:
         prep_thread = ChatThread(id="ct_prep", title="Interview Prep Group",
                                  is_ai=False, is_group=True, pinned=False)
         db.add_all([ai_thread, maya_thread, prep_thread])
+        db.flush()  # persist threads before members/messages (FK parent-first)
         db.add_all([
             ChatMember(id="cm1", thread_id="ct_ai", user_id="me"),
             ChatMember(id="cm2", thread_id="ct_maya", user_id="me"),

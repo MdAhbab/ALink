@@ -15,6 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "../ui/tooltip";
 
 import { apiRequest, getAuthToken } from "../../lib/api";
+import { timeAgo } from "../../lib/time";
 
 export type Notification = {
   id: string;
@@ -54,7 +55,7 @@ const SIDEBAR_OPEN = 260;
 const SIDEBAR_CLOSED = 76;
 
 export function AppShell() {
-  const { user, logout, setRole } = useAuth();
+  const { user, logout } = useAuth();
   const nav = useNavigate();
   const loc = useLocation();
   const [paletteOpen, setPaletteOpen] = React.useState(false);
@@ -101,9 +102,35 @@ export function AppShell() {
   if (user.role === "admin") items.push({ to: "/admin", label: "Admin", icon: Shield });
   const sidebarWidth = collapsed ? SIDEBAR_CLOSED : SIDEBAR_OPEN;
 
-  const markAllRead = () => setNotifs((ns) => ns.map((n) => ({ ...n, unread: false })));
-  const markOne = (id: string) => setNotifs((ns) => ns.map((n) => (n.id === id ? { ...n, unread: false } : n)));
-  const clearAll = () => setNotifs([]);
+  const markOne = async (id: string) => {
+    const prev = notifs;
+    setNotifs((ns) => ns.map((n) => (n.id === id ? { ...n, unread: false } : n)));
+    try {
+      await apiRequest(`/notifications/${id}/read`, { method: "POST", token: getAuthToken() || undefined });
+    } catch {
+      setNotifs(prev);
+    }
+  };
+
+  const markAllRead = async () => {
+    const prev = notifs;
+    setNotifs((ns) => ns.map((n) => ({ ...n, unread: false })));
+    try {
+      await apiRequest("/notifications/read-all", { method: "POST", token: getAuthToken() || undefined });
+    } catch {
+      setNotifs(prev);
+    }
+  };
+
+  const clearAll = async () => {
+    const prev = notifs;
+    setNotifs([]);
+    try {
+      await apiRequest("/notifications", { method: "DELETE", token: getAuthToken() || undefined });
+    } catch {
+      setNotifs(prev);
+    }
+  };
 
   return (
     <TooltipProvider delayDuration={120}>
@@ -230,7 +257,7 @@ export function AppShell() {
                             <div className="flex-1 min-w-0">
                               <p className="text-sm">{n.title}</p>
                               <p className="text-xs text-muted-foreground">{n.body}</p>
-                              <p className="text-[10px] text-muted-foreground mt-1">{n.at} ago</p>
+                              <p className="text-[10px] text-muted-foreground mt-1">{timeAgo(n.at)}</p>
                             </div>
                           </div>
                         </button>

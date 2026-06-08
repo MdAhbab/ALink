@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..deps import get_current_user
+from ..events import publish, EventType
 from ..models import Referral, User
 from ..schemas import ReferralIn, ReferralOut, ReferralPatch
 
@@ -49,6 +50,13 @@ def create_referral(
     db.add(r)
     db.commit()
     db.refresh(r)
+    publish(EventType.REFERRAL_CREATED, {
+        "owner_id": r.owner_id,
+        "owner_name": current.name,
+        "referrer_id": r.referrer_id,
+        "company": r.company,
+        "role": r.role,
+    })
     return r
 
 
@@ -60,17 +68,25 @@ def update_referral(
     current: User = Depends(get_current_user),
 ) -> Referral:
     r = db.get(Referral, ref_id)
-    if not r or current.id not in (r.owner_id, r.referrer_id) and current.role != "admin":
+    if not r or (current.id not in (r.owner_id, r.referrer_id) and current.role != "admin"):
         raise HTTPException(404, "Referral not found")
     data = body.model_dump(exclude_unset=True, by_alias=False)
     if "status" in data and current.id != r.referrer_id and current.role != "admin":
         raise HTTPException(403, "Only the referrer or admin can update referral status")
     if current.id == r.referrer_id and current.role != "admin":
         data = {k: v for k, v in data.items() if k == "status"}
+    old_status = r.status
     for k, v in data.items():
         setattr(r, k, v)
     db.commit()
     db.refresh(r)
+    if "status" in data and r.status != old_status:
+        publish(EventType.REFERRAL_STATUS_CHANGED, {
+            "owner_id": r.owner_id,
+            "company": r.company,
+            "role": r.role,
+            "status": r.status,
+        })
     return r
 
 

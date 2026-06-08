@@ -1,7 +1,7 @@
 import * as React from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useAuth } from "../lib/auth";
-import { apiRequestAll, getAuthToken } from "../lib/api";
+import { apiRequest, apiRequestAll, getAuthToken } from "../lib/api";
 import { useDebouncedValue } from "../lib/useDebouncedValue";
 import { PersonCard } from "../components/people/PersonCard";
 import { Input } from "../components/ui/input";
@@ -21,6 +21,7 @@ export default function Finder() {
   const [industry, setIndustry] = React.useState<string | null>(null);
   const [university, setUniversity] = React.useState<string | null>(null);
   const [people, setPeople] = React.useState<any[]>([]);
+  const [topMatches, setTopMatches] = React.useState<any[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
 
   React.useEffect(() => {
@@ -36,6 +37,10 @@ export default function Finder() {
         }
       })
       .finally(() => setIsLoading(false));
+    // Fetch recommendations separately; failures are silently ignored
+    apiRequest<any[]>("/recommendations/people?limit=8", { token, signal: controller.signal })
+      .then(setTopMatches)
+      .catch(() => {});
     return () => controller.abort();
   }, []);
 
@@ -94,6 +99,28 @@ export default function Finder() {
           </div>
         </div>
       </div>
+
+      {topMatches.length > 0 && (
+        <div className="rounded-2xl border border-border bg-card p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-sm font-medium">Top matches for you</span>
+            <Badge variant="secondary" className="rounded-full text-[10px]">{topMatches.length}</Badge>
+          </div>
+          <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-thin">
+            {topMatches.map(p => (
+              <div key={p.id} className="shrink-0 w-32 rounded-xl border border-border bg-background p-3 text-center hover:bg-muted/50 transition cursor-pointer"
+                onClick={() => nav(`/app/finder`)}>
+                <div className="size-10 rounded-full bg-muted mx-auto overflow-hidden">
+                  {p.avatar ? <img src={p.avatar} alt={p.name} className="w-full h-full object-cover" /> : <div className="w-full h-full grid place-items-center text-sm">{p.name?.[0]}</div>}
+                </div>
+                <div className="text-xs mt-2 truncate">{p.name}</div>
+                <div className="text-[10px] text-muted-foreground truncate">{p.title}</div>
+                <Badge variant="secondary" className="mt-1.5 text-[9px] h-4 px-1.5 rounded-full">{Math.round(p.matchScore * 100)}% match</Badge>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="flex items-center justify-between">
         <div className="text-sm text-muted-foreground">

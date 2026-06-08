@@ -1,29 +1,16 @@
 import uuid
-from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..deps import get_current_user
+from ..events import publish, EventType
 from ..models import ChatMember, ChatMessage, ChatThread, User
 from ..schemas import ChatMessageIn, ChatMessageOut, ChatThreadOut
 
 
 router = APIRouter(prefix="/chat", tags=["chat"])
-
-
-def _ai_reply(prompt: str) -> str:
-    p = prompt.lower()
-    if "intro" in p or "draft" in p:
-        return "Here's a 3-line warm intro you can copy. Want me to tailor it?"
-    if "vc" in p or "venture" in p:
-        return "I'd start with Aiko at Sequoia and a couple of alumni at Index. Want intros queued?"
-    if "prep" in p or "friday" in p:
-        return "Pulled together a prep doc: top 5 questions, latest news, mutual links. Want it pinned?"
-    if "referral" in p:
-        return "Your Stripe referral is forwarded; Linear is under review. Nudge in 3 days?"
-    return "Got it. I'll think on this and surface 2-3 suggestions in a moment."
 
 
 def _serialize_thread(t: ChatThread, db: Session, current: User) -> ChatThreadOut:
@@ -134,20 +121,13 @@ def send_message(
     db.add(msg)
     db.commit()
     db.refresh(msg)
-
-    # If this is the AI thread, queue a reply.
-    if t.is_ai:
-        reply = ChatMessage(
-            id=f"msg_{uuid.uuid4().hex[:10]}",
-            thread_id=thread_id,
-            sender_id=None,
-            body=_ai_reply(body.body),
-            is_ai=True,
-            read=False,
-            created_at=datetime.now(timezone.utc),
-        )
-        db.add(reply)
-        db.commit()
+    publish(EventType.CHAT_MESSAGE_CREATED, {
+        "thread_id": thread_id,
+        "is_ai": t.is_ai,
+        "body": msg.body,
+        "sender_id": current.id,
+        "sender_name": current.name,
+    })
     return msg
 
 
@@ -157,6 +137,10 @@ def mark_thread_read(
     db: Session = Depends(get_db),
     current: User = Depends(get_current_user),
 ) -> None:
+    if not db.query(ChatMember).filter(
+        ChatMember.thread_id == thread_id, ChatMember.user_id == current.id
+    ).first():
+        raise HTTPException(404, "Thread not found")
     db.query(ChatMessage).filter(
         ChatMessage.thread_id == thread_id,
         ChatMessage.sender_id != current.id,

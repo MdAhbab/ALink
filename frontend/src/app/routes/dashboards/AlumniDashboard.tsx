@@ -38,6 +38,7 @@ export default function AlumniDashboard() {
   const { user } = useAuth();
   const [incomingRequests, setIncomingRequests] = React.useState<any[]>([]);
   const [people, setPeople] = React.useState<any[]>([]);
+  const [recommendedStudents, setRecommendedStudents] = React.useState<any[]>([]);
   const [connections, setConnections] = React.useState<any[]>([]);
   const [referrals, setReferrals] = React.useState<any[]>([]);
   const [bookings, setBookings] = React.useState<any[]>([]);
@@ -60,6 +61,8 @@ export default function AlumniDashboard() {
       apiRequestAll<any>("/referrals", { token, signal: controller.signal }).then(setReferrals).catch(() => {}),
       apiRequestAll<any>("/bookings", { token, signal: controller.signal }).then(setBookings).catch(() => {}),
       apiRequest<any[]>("/mentorship/programs", { token, signal: controller.signal }).then(setMentorPrograms).catch(() => {}),
+      apiRequest<any[]>("/recommendations/people?limit=12", { token, signal: controller.signal })
+        .then(setRecommendedStudents).catch(() => {}),
     ]).finally(() => setIsLoading(false));
     return () => controller.abort();
   }, []);
@@ -193,11 +196,14 @@ export default function AlumniDashboard() {
             <div className="p-4 bg-muted/30">
               <div className="text-xs text-muted-foreground mb-2">Suggested mentees from {user!.university}</div>
               <div className="grid grid-cols-3 gap-2">
-                {people.filter(p => p.role === "student").slice(0, 3).map(p => (
+                {(recommendedStudents.length > 0 ? recommendedStudents : people.filter(p => p.role === "student")).slice(0, 3).map(p => (
                   <div key={p.id} className="rounded-xl border border-border bg-card p-2.5 text-center">
                     <Avatar className="size-10 mx-auto"><AvatarImage src={p.avatar} /><AvatarFallback>{p.name[0]}</AvatarFallback></Avatar>
                     <div className="text-xs mt-1.5 truncate">{p.name}</div>
                     <div className="text-[10px] text-muted-foreground truncate">{p.major}</div>
+                    {p.matchScore != null && (
+                      <div className="text-[9px] text-[color:var(--brand-600)] dark:text-[color:var(--brand-400)] mt-0.5">{Math.round(p.matchScore * 100)}% match</div>
+                    )}
                     <Button size="sm" variant="outline" className="h-6 px-2 mt-1.5 text-[10px]">Invite</Button>
                   </div>
                 ))}

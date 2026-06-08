@@ -355,8 +355,12 @@ function ThreadView({
         token,
         body: { body: msg }
       });
-      // Re-fetch to get AI reply if any, or just confirmed message
+      // Re-fetch to get confirmed message
       fetchMessages();
+      // For AI threads, schedule an extra delayed refetch so the async reply shows up
+      if (thread.isAI) {
+        setTimeout(fetchMessages, 1200);
+      }
     } catch {}
   };
 
