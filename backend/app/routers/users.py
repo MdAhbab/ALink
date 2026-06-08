@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
@@ -7,7 +7,8 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from ..deps import get_current_user
 from ..models import User
-from ..schemas import AvatarUpdate, UserMe, UserPublic, UserUpdate
+from ..schemas import AvatarUpdate, PasswordChange, UserMe, UserPublic, UserUpdate
+from ..security import hash_password, verify_password
 
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -39,6 +40,20 @@ def update_me(
     db.commit()
     db.refresh(current)
     return current
+
+
+@router.post("/me/password")
+def change_password(
+    body: PasswordChange,
+    db: Session = Depends(get_db),
+    current: User = Depends(get_current_user),
+) -> dict[str, str]:
+    if not verify_password(body.current_password, current.password_hash):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Current password is incorrect")
+
+    current.password_hash = hash_password(body.new_password)
+    db.commit()
+    return {"status": "ok"}
 
 
 @router.post("/me/avatar", response_model=UserMe)

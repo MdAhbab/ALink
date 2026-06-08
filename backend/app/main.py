@@ -23,6 +23,14 @@ def ensure_compatible_schema() -> None:
         statements.append("ALTER TABLE bookings ADD COLUMN starts_at_utc VARCHAR")
     if "timezone" not in booking_columns:
         statements.append("ALTER TABLE bookings ADD COLUMN timezone VARCHAR")
+
+    if "users" in inspector.get_table_names():
+        user_columns = {c["name"] for c in inspector.get_columns("users")}
+        if "gpa" not in user_columns:
+            statements.append("ALTER TABLE users ADD COLUMN gpa FLOAT")
+        if "phone" not in user_columns:
+            statements.append("ALTER TABLE users ADD COLUMN phone VARCHAR")
+
     if not statements:
         return
     with engine.begin() as conn:
