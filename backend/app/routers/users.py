@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
-from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..deps import get_current_user
@@ -34,7 +33,7 @@ def update_me(
     # PRD §2.2 — auto-reclassify student → alumni when graduation year is in the past
     if current.role == "student" and current.graduation_year is not None:
         from datetime import date
-        if current.graduation_year <= date.today().year:
+        if current.graduation_year < date.today().year:
             current.role = "alumni"
 
     db.commit()
@@ -52,8 +51,12 @@ def change_password(
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Current password is incorrect")
 
     current.password_hash = hash_password(body.new_password)
+    current.token_version = (current.token_version or 0) + 1  # revoke old JWTs
     db.commit()
-    return {"status": "ok"}
+    # Issue a fresh token so the current session stays valid after rotation.
+    from ..security import create_access_token
+    new_token = create_access_token(current.id, extra={"role": current.role, "ver": current.token_version})
+    return {"status": "ok", "access_token": new_token, "token_type": "bearer"}
 
 
 @router.post("/me/avatar", response_model=UserMe)
@@ -78,9 +81,11 @@ def list_users(
     limit: int = Query(default=50, le=200),
     offset: int = 0,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current: User = Depends(get_current_user),
 ) -> list[User]:
     qry = db.query(User)
+    if current.role != "admin":
+        qry = qry.filter(User.id != current.id)
     if q:
         like = f"%{q}%"
         qry = qry.filter(or_(
@@ -95,7 +100,15 @@ def list_users(
         qry = qry.filter(User.industry == industry)
     if verified is not None:
         qry = qry.filter(User.verified == verified)
-    return qry.order_by(User.name).offset(offset).limit(limit).all()
+    users = qry.order_by(User.name).offset(offset).limit(limit).all()
+    # Respect showInDirectory privacy preference — exclude opted-out users
+    # from directory-style listings. The current user is available via /users/me.
+    if current.role != "admin":
+        users = [
+            u for u in users
+            if (u.prefs or {}).get("showInDirectory", True)
+        ]
+    return users
 
 
 @router.get("/{user_id}", response_model=UserPublic)
