@@ -25,6 +25,7 @@ const Jobs = React.lazy(() => import("./routes/Jobs"));
 const Stories = React.lazy(() => import("./routes/Stories"));
 const Achievements = React.lazy(() => import("./routes/Achievements"));
 const Calendar = React.lazy(() => import("./routes/Calendar"));
+const CoursePlanner = React.lazy(() => import("./routes/CoursePlanner"));
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
@@ -77,6 +78,7 @@ export default function App() {
               <Route path="/app/jobs" element={<Jobs />} />
               <Route path="/app/stories" element={<Stories />} />
               <Route path="/app/achievements" element={<Achievements />} />
+              <Route path="/app/course-planner" element={<CoursePlanner />} />
 
               <Route path="/admin" element={<AdminGate />}>
                 <Route index element={<AdminOverview />} />

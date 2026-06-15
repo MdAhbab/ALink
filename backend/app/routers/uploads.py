@@ -101,3 +101,19 @@ async def upload_avatar(
     current.avatar = url
     db.commit()
     return UploadOut(url=url, filename=file.filename or "avatar.png", content_type=real_type, size=len(data))
+
+
+@router.post("/chat-image", response_model=UploadOut, status_code=201)
+async def upload_chat_image(
+    file: UploadFile = File(...),
+    current: User = Depends(get_current_user),
+) -> UploadOut:
+    """Upload an image intended to be shared in a chat message. Max 5 MB."""
+    if file.content_type not in ALLOWED_IMAGE_TYPES:
+        raise HTTPException(400, f"Unsupported image type: {file.content_type}")
+    data = await file.read()
+    if len(data) > 5 * _MB:
+        raise HTTPException(413, "Chat image too large (max 5 MB)")
+    real_type = _validate_bytes(data, ALLOWED_IMAGE_TYPES)
+    url = _save_file(data, file.filename or "chat-image.png", "chat-images")
+    return UploadOut(url=url, filename=file.filename or "chat-image.png", content_type=real_type, size=len(data))

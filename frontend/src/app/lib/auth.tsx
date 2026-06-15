@@ -23,6 +23,7 @@ export type Person = {
   institutionEmail?: string;
   secondaryInstitutions: string[];
   linkedin?: string;
+  prefs?: Record<string, any>;
 };
 
 type AuthState = {

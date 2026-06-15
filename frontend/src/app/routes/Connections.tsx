@@ -10,6 +10,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "../components/ui/avatar";
 import { PersonCard } from "../components/people/PersonCard";
 import { toast } from "sonner";
 import { Check, Search, X } from "lucide-react";
+import { openDirectThread } from "../lib/chat";
 
 export default function Connections() {
   const nav = useNavigate();
@@ -50,6 +51,15 @@ export default function Connections() {
   }, [fetchConnections]);
 
   const connectedIds = new Set(connected.map(c => c.id));
+  const messagePerson = async (p: any) => {
+    try {
+      const thread = await openDirectThread(p.id);
+      toast.success(`Conversation opened with ${p.name}`);
+      nav(`/app/inbox?thread=${encodeURIComponent(thread.id)}`);
+    } catch (err: any) {
+      toast.error("Failed to open message", { description: err.message });
+    }
+  };
 
   const list = people.filter(p =>
     [p.name, p.title, p.company, p.university, p.major, p.industry].filter(Boolean).join(" ").toLowerCase().includes(q.toLowerCase())
@@ -98,6 +108,7 @@ export default function Connections() {
                   }}
                   onBook={(p) => nav(`/app/bookings?new=1&withId=${encodeURIComponent(p.id)}`)}
                   onRefer={(p) => nav(`/app/referrals?new=1&referrerId=${encodeURIComponent(p.id)}`)}
+                  onMessage={messagePerson}
                 />
               ))}
               {!isLoading && list.length === 0 && (
@@ -110,7 +121,7 @@ export default function Connections() {
         <TabsContent value="connected">
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {connected.map(p => (
-              <PersonCard key={p.id} p={{ ...p, connected: true }} onMessage={() => nav("/app/inbox")} />
+              <PersonCard key={p.id} p={{ ...p, connected: true }} onMessage={messagePerson} />
             ))}
           </div>
         </TabsContent>
