@@ -8,8 +8,8 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import inspect, text
 
 from .config import settings
-from .controllers import ALL_CONTROLLERS
 from .database import Base, engine
+from .routers import ALL_ROUTERS
 from .seed import seed_if_empty
 
 
@@ -89,7 +89,7 @@ def readiness() -> dict:
     return body
 
 
-for r in ALL_CONTROLLERS:
+for r in ALL_ROUTERS:
     app.include_router(r)
 
 # Serve uploaded files at /static/<subfolder>/<filename>
