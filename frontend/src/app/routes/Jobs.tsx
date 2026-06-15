@@ -74,7 +74,7 @@ export default function Jobs() {
             </div>
           )}
           {jobs.map((j, i) => (
-            <motion.div layout key={j.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}>
+            <motion.div layout key={j.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(i, 12) * 0.04 }}>
               <JobCard
                 job={j}
                 isSaved={saved.has(j.id)}

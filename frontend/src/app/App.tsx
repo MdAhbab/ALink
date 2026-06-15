@@ -2,6 +2,7 @@ import * as React from "react";
 import { BrowserRouter, MemoryRouter, Routes, Route, Navigate } from "react-router";
 import { AuthProvider, useAuth } from "./lib/auth";
 import { ThemeProvider } from "./lib/theme";
+import { PreferencesGate } from "./lib/preferences";
 import { AppShell } from "./components/shell/AppShell";
 import Landing from "./routes/Landing";
 import { LoginPage, RegisterPage, OnboardingPage } from "./routes/Auth";
@@ -61,6 +62,7 @@ export default function App() {
   return (
     <ThemeProvider>
     <AuthProvider>
+      <PreferencesGate>
       <Router>
         <React.Suspense fallback={<Loading />}>
           <Routes>
@@ -100,6 +102,7 @@ export default function App() {
           </Routes>
         </React.Suspense>
       </Router>
+      </PreferencesGate>
     </AuthProvider>
     </ThemeProvider>
   );

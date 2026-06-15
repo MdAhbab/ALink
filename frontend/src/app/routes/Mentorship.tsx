@@ -127,7 +127,7 @@ export default function Mentorship() {
         {mentorPrograms.map((p, i) => {
           const fillPct = (p.filled / p.spots) * 100;
           return (
-            <motion.div key={p.id} whileHover={{ y: -4 }} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
+            <motion.div key={p.id} whileHover={{ y: -4 }} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(i, 12) * 0.05 }}>
               <Card className="h-full overflow-hidden">
                 <CardContent className="p-5">
                   <div className="flex items-center gap-3">
