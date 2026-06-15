@@ -594,15 +594,29 @@ function ThreadView({
 }
 
 function imageFromMessage(body: string): { alt: string; url: string } | null {
-  const match = body.match(/^!\[(.*)]\((\/static\/[^)]+)\)$/);
+  const match = body.match(/^!\[([^\]]*)\]\(\/static\/([A-Za-z0-9._/-]+)\)$/);
   if (!match) return null;
-  return { alt: match[1] || "Shared image", url: match[2] };
+  const staticPath = match[2];
+  if (staticPath.includes("..")) return null;
+  return { alt: match[1] || "Shared image", url: `/static/${staticPath.replace(/^\/+/, "")}` };
+}
+
+function toSafeMediaUrl(path: string): string | null {
+  try {
+    const resolved = new URL(apiUrl(path));
+    if (resolved.protocol !== "http:" && resolved.protocol !== "https:") return null;
+    if (!resolved.pathname.startsWith("/static/")) return null;
+    return resolved.toString();
+  } catch {
+    return null;
+  }
 }
 
 function Bubble({ m, mine }: { m: ChatMessage; mine: boolean }) {
   const isAI = m.isAI;
   const dateStr = new Date(m.at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
   const image = imageFromMessage(m.body);
+  const imageUrl = image ? toSafeMediaUrl(image.url) : null;
   return (
     <motion.div
       layout
@@ -620,9 +634,9 @@ function Bubble({ m, mine }: { m: ChatMessage; mine: boolean }) {
             : "bg-muted text-foreground rounded-bl-sm"
         }`}
       >
-        {image ? (
-          <a href={apiUrl(image.url)} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-xl">
-            <img src={apiUrl(image.url)} alt={image.alt} className="max-h-56 w-full object-cover" />
+        {image && imageUrl ? (
+          <a href={imageUrl} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-xl">
+            <img src={imageUrl} alt={image.alt} className="max-h-56 w-full object-cover" />
           </a>
         ) : (
           m.body
