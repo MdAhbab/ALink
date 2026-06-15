@@ -1,4 +1,4 @@
-"""Pydantic request/response schemas matching the TS types in mock.ts."""
+"""Pydantic request/response schemas (the API contract for the React frontend)."""
 from __future__ import annotations
 
 from datetime import datetime
@@ -33,8 +33,6 @@ class UserPublic(ORMBase):
     major: str = ""
     industry: Optional[str] = None
     graduation_year: Optional[int] = Field(default=None, alias="graduationYear")
-    gpa: Optional[float] = None
-    phone: Optional[str] = None
     avatar: str = ""
     location: str = ""
     bio: str = ""
@@ -49,6 +47,7 @@ class UserMe(UserPublic):
     secondary_institutions: list[str] = Field(default_factory=list, alias="secondaryInstitutions")
     linkedin: Optional[str] = None
     phone: Optional[str] = None
+    gpa: Optional[float] = None
     prefs: dict = {}
 
 
@@ -61,7 +60,7 @@ class UserUpdate(BaseModel):
     university: Optional[str] = None
     major: Optional[str] = None
     industry: Optional[str] = None
-    graduation_year: Optional[int] = Field(default=None, alias="graduationYear")
+    graduation_year: Optional[int] = Field(default=None, alias="graduationYear", ge=1950, le=2035)
     gpa: Optional[float] = None
     phone: Optional[str] = None
     avatar: Optional[str] = None
@@ -90,7 +89,7 @@ class RegisterIn(BaseModel):
     institution_email: Optional[EmailStr] = Field(default=None, alias="institutionEmail")
     university: Optional[str] = None
     major: Optional[str] = None
-    graduation_year: Optional[int] = Field(default=None, alias="graduationYear")
+    graduation_year: Optional[int] = Field(default=None, alias="graduationYear", ge=1950, le=2035)
     secondary_institutions: list[str] = Field(default_factory=list, alias="secondaryInstitutions")
     linkedin: Optional[str] = None
 
@@ -238,6 +237,16 @@ class JobOut(ORMBase):
     status: JobStatus
 
 
+class PersonRecOut(UserPublic):
+    match_score: float = Field(alias="matchScore")
+    reasons: list[str] = []
+
+
+class JobRecOut(JobOut):
+    match_score: float = Field(alias="matchScore")
+    matched_skills: list[str] = Field(default_factory=list, alias="matchedSkills")
+
+
 class JobIn(BaseModel):
     company: str
     role: str
@@ -274,6 +283,15 @@ class JobCommentOut(ORMBase):
 
 
 # ---------- Mentorship ----------------------------------------------------- #
+class MentorProgramIn(BaseModel):
+    title: str
+    duration: str
+    cadence: str
+    spots: int
+    focus: list[str]
+    price: Literal["Free", "Paid"] = "Free"
+
+
 class MentorProgramOut(ORMBase):
     id: str
     title: str
@@ -343,6 +361,10 @@ class ChatMessageOut(ORMBase):
 
 class ChatMessageIn(BaseModel):
     body: str
+
+
+class ChatDirectIn(BaseModel):
+    user_id: str = Field(alias="userId")
 
 
 class ChatThreadOut(ORMBase):

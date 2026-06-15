@@ -3,6 +3,7 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import inspect, text
 
@@ -30,6 +31,8 @@ def ensure_compatible_schema() -> None:
             statements.append("ALTER TABLE users ADD COLUMN gpa FLOAT")
         if "phone" not in user_columns:
             statements.append("ALTER TABLE users ADD COLUMN phone VARCHAR")
+        if "token_version" not in user_columns:
+            statements.append("ALTER TABLE users ADD COLUMN token_version INTEGER DEFAULT 0 NOT NULL")
 
     if not statements:
         return
@@ -62,7 +65,28 @@ app.add_middleware(
 
 @app.get("/health", tags=["meta"])
 def health() -> dict:
+    """Liveness probe — process is up."""
     return {"ok": True, "service": "alink-api"}
+
+
+@app.get("/health/ready", tags=["meta"])
+def readiness() -> dict:
+    """Readiness probe — reports DB connectivity and broker configuration."""
+    db_ok = True
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+    except Exception:
+        db_ok = False
+    body = {
+        "ok": db_ok,
+        "database": "ok" if db_ok else "unavailable",
+        "broker": "configured" if settings.rabbitmq_url else "in-process-fallback",
+        "environment": settings.environment,
+    }
+    if not db_ok:
+        return JSONResponse(status_code=503, content=body)
+    return body
 
 
 for r in ALL_CONTROLLERS:

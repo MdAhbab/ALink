@@ -263,14 +263,29 @@ export default function Landing() {
             <p className="text-muted-foreground mt-3 max-w-xs">A network worth belonging to. Built for the people who make a campus.</p>
           </div>
           {[
-            { h: "Product", l: ["Discover", "Bookings", "Referrals", "Events"] },
-            { h: "Company", l: ["About", "Careers", "Press", "Contact"] },
-            { h: "Legal",   l: ["Privacy", "Terms", "Trust", "Cookies"] },
+            { h: "Product", l: [
+              { label: "Discover", to: "/app/finder" },
+              { label: "Bookings", to: "/app/bookings" },
+              { label: "Referrals", to: "/app/referrals" },
+              { label: "Events", to: "/app/events" },
+            ] },
+            { h: "Company", l: [
+              { label: "About", to: "/register" },
+              { label: "Careers", to: "/register" },
+              { label: "Press", to: "/register" },
+              { label: "Contact", to: "/register" },
+            ] },
+            { h: "Legal", l: [
+              { label: "Privacy", to: "/register" },
+              { label: "Terms", to: "/register" },
+              { label: "Trust", to: "/register" },
+              { label: "Cookies", to: "/register" },
+            ] },
           ].map(c => (
             <div key={c.h}>
               <div className="text-muted-foreground">{c.h}</div>
               <ul className="mt-2 space-y-1.5">
-                {c.l.map(x => <li key={x}><a className="hover:text-foreground" href="#">{x}</a></li>)}
+                {c.l.map(x => <li key={x.label}><Link className="hover:text-foreground" to={x.to}>{x.label}</Link></li>)}
               </ul>
             </div>
           ))}
@@ -416,7 +431,7 @@ function RoleVisual({ role }: { role: "student"|"alumni"|"admin" }) {
               <div className="text-sm truncate">{m.n}</div>
               <div className="text-xs text-muted-foreground truncate">{m.t}</div>
             </div>
-            <Button size="sm" className="h-7 px-2">Connect</Button>
+            <span className="inline-flex h-7 items-center rounded-md bg-primary px-2 text-xs font-medium text-primary-foreground">Connect</span>
           </motion.div>
         ))}
       </div>
@@ -445,7 +460,7 @@ function RoleVisual({ role }: { role: "student"|"alumni"|"admin" }) {
           className="mt-2 flex items-center gap-3 rounded-xl p-2 border border-border">
           <img className="size-8 rounded-full" src={`https://api.dicebear.com/9.x/notionists/svg?seed=${n}`} />
           <div className="flex-1 min-w-0"><div className="text-sm truncate">{n}</div><div className="text-xs text-muted-foreground">Pending review</div></div>
-          <Button size="sm" variant="outline" className="h-7 px-2">Approve</Button>
+          <span className="inline-flex h-7 items-center rounded-md border border-border px-2 text-xs font-medium">Approve</span>
         </motion.div>
       ))}
     </div>

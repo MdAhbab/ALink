@@ -1,9 +1,9 @@
-"""SQLAlchemy ORM models — one row per type defined in src/app/lib/mock.ts."""
+"""SQLAlchemy ORM models for the ALink domain (users, networking, jobs, chat)."""
 from __future__ import annotations
 
 from datetime import datetime, timezone
 from sqlalchemy import (
-    Boolean, Column, DateTime, Float, ForeignKey, Integer, JSON, String, Text,
+    Boolean, DateTime, Float, ForeignKey, Integer, JSON, String, Text,
     UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -44,6 +44,9 @@ class User(Base):
     linkedin: Mapped[str | None] = mapped_column(String)
 
     prefs: Mapped[dict] = mapped_column(JSON, default=dict)
+
+    # Bumped on password change to invalidate previously issued JWTs.
+    token_version: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=now, onupdate=now)
@@ -100,7 +103,7 @@ class Referral(Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
     owner_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
-    referrer_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"))
+    referrer_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     company: Mapped[str] = mapped_column(String)
     role: Mapped[str] = mapped_column(String)
     pitch: Mapped[str] = mapped_column(Text, default="")
@@ -152,7 +155,7 @@ class Job(Base):
     posted: Mapped[str] = mapped_column(String, default="")
     salary: Mapped[str] = mapped_column(String, default="")
     tags: Mapped[list[str]] = mapped_column(JSON, default=list)
-    posted_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"))
+    posted_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     alumni_count: Mapped[int] = mapped_column(Integer, default=0)
     status: Mapped[str] = mapped_column(String, default="live")  # live|pending|flagged
 
@@ -208,6 +211,20 @@ class MentorProgram(Base):
     price: Mapped[str] = mapped_column(String, default="Free")  # Free|Paid
 
     mentor: Mapped[User] = relationship(foreign_keys=[mentor_id])
+
+
+class MentorApplication(Base):
+    __tablename__ = "mentor_applications"
+    __table_args__ = (UniqueConstraint("program_id", "user_id", name="uq_mentor_application"),)
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    program_id: Mapped[str] = mapped_column(ForeignKey("mentor_programs.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    status: Mapped[str] = mapped_column(String, default="applied")  # applied|accepted|declined
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+    program: Mapped[MentorProgram] = relationship(foreign_keys=[program_id])
+    applicant: Mapped[User] = relationship(foreign_keys=[user_id])
 
 
 # ---------- Stories --------------------------------------------------------- #

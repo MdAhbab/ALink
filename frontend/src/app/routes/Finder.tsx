@@ -11,6 +11,7 @@ import { Search, SlidersHorizontal, X } from "lucide-react";
 import { toast } from "sonner";
 import type { Role } from "./Auth";
 import { useNavigate } from "react-router";
+import { openDirectThread } from "../lib/chat";
 
 export default function Finder() {
   const nav = useNavigate();
@@ -53,6 +54,16 @@ export default function Finder() {
     (!university || p.university === university) &&
     [p.name, p.title, p.company, p.major].filter(Boolean).join(" ").toLowerCase().includes(debouncedQ.toLowerCase())
   );
+
+  const messagePerson = async (p: any) => {
+    try {
+      const thread = await openDirectThread(p.id);
+      toast.success(`Conversation opened with ${p.name}`);
+      nav(`/app/inbox?thread=${encodeURIComponent(thread.id)}`);
+    } catch (err: any) {
+      toast.error("Failed to open message", { description: err.message });
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -150,7 +161,7 @@ export default function Finder() {
                   toast.error("Failed to connect", { description: err.message });
                 }
               }}
-              onMessage={() => nav("/app/inbox")}
+              onMessage={messagePerson}
               onBook={(p) => nav(`/app/bookings?new=1&withId=${encodeURIComponent(p.id)}`)}
               onRefer={(p) => nav(`/app/referrals?new=1&referrerId=${encodeURIComponent(p.id)}`)}
             />

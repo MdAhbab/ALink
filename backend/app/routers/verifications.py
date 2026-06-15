@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..deps import get_current_user, require_admin
+from ..events import publish, EventType
 from ..models import User, Verification, VerificationSubmission
 from ..schemas import (
     VerificationOut, VerificationSubmissionIn, VerificationSubmissionOut,
@@ -38,6 +39,10 @@ def approve(vid: str, db: Session = Depends(get_db), _: User = Depends(require_a
         user.verified = True
     db.commit()
     db.refresh(v)
+    publish(EventType.VERIFICATION_APPROVED, {
+        "user_id": v.user_id,
+        "university": v.university,
+    })
     return v
 
 
@@ -127,4 +132,8 @@ def submit_documents(
     db.add(sub)
     db.commit()
     db.refresh(sub)
+    publish(EventType.VERIFICATION_SUBMITTED, {
+        "user_id": current.id,
+        "university": current.university,
+    })
     return sub
