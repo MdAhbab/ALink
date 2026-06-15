@@ -6,8 +6,11 @@ import { Card, CardContent } from "../components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
 import { Badge } from "../components/ui/badge";
 import { toast } from "sonner";
+import { useSearchParams } from "react-router";
 
 export default function Inbox() {
+  const [params] = useSearchParams();
+  const selectedThreadId = params.get("thread");
   const [notifications, setNotifications] = React.useState<any[]>([]);
   const [threads, setThreads] = React.useState<any[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -67,7 +70,12 @@ export default function Inbox() {
             <div className="divide-y divide-border">
               {isLoading && <div className="p-4 text-sm text-muted-foreground">Loading conversations...</div>}
               {threads.map(t => (
-                <div key={t.id} className="p-4 flex items-center gap-3 hover:bg-muted/40 cursor-pointer">
+                <div
+                  key={t.id}
+                  className={`p-4 flex items-center gap-3 hover:bg-muted/40 cursor-pointer ${
+                    selectedThreadId === t.id ? "bg-[color:var(--brand-50)] dark:bg-[color:var(--brand-900)]/30" : ""
+                  }`}
+                >
                   <Avatar className="size-10"><AvatarImage src={t.members?.[0]?.avatar} /><AvatarFallback>{t.title?.[0]}</AvatarFallback></Avatar>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm">{t.title}</div>

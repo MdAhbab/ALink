@@ -86,14 +86,27 @@ export default function StudentDashboard() {
     );
   }
 
+  const sendConnectionRequest = async (person: any) => {
+    try {
+      await apiRequest("/connections/requests", {
+        method: "POST",
+        token: getAuthToken() || undefined,
+        body: { to_id: person.id, message: "Hi! I'd like to connect." },
+      });
+      toast.success(`Request sent to ${person.name}`);
+    } catch (err: any) {
+      toast.error("Failed to connect", { description: err.message });
+    }
+  };
+
   return (
     <motion.div variants={stagger} initial="hidden" animate="visible" className="space-y-6">
       {/* Hero */}
       <motion.div ref={heroRef} variants={item} className="relative overflow-hidden rounded-3xl border border-border bg-card p-6 md:p-8">
-        <motion.div aria-hidden style={{ y: tintY }} className="absolute inset-0 -z-10 opacity-[0.10] brand-gradient" />
-        <motion.div aria-hidden style={{ y: blobY, x: blobX }} className="absolute -right-16 -bottom-16 size-72 rounded-full brand-gradient opacity-20 blur-3xl" />
-        <motion.div aria-hidden style={{ y: blob2Y }} className="absolute -left-20 -top-20 size-60 rounded-full bg-[var(--amber)]/15 blur-3xl" />
-        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-5">
+        <motion.div aria-hidden style={{ y: tintY }} className="pointer-events-none absolute inset-0 -z-10 opacity-[0.10] brand-gradient" />
+        <motion.div aria-hidden style={{ y: blobY, x: blobX }} className="pointer-events-none absolute -right-16 -bottom-16 size-72 rounded-full brand-gradient opacity-20 blur-3xl" />
+        <motion.div aria-hidden style={{ y: blob2Y }} className="pointer-events-none absolute -left-20 -top-20 size-60 rounded-full bg-[var(--amber)]/15 blur-3xl" />
+        <div className="relative z-10 flex flex-col md:flex-row md:items-end md:justify-between gap-5">
           <div>
             <Badge variant="secondary" className="rounded-full"><Flame className="size-3" /> {connections.length} connection{connections.length === 1 ? "" : "s"}</Badge>
             <h1 className="font-serif text-4xl md:text-5xl mt-3">
@@ -111,8 +124,8 @@ export default function StudentDashboard() {
             </p>
           </div>
           <div className="flex gap-2 flex-wrap">
-            <Link to="/app/finder"><Button className="gap-2"><Compass className="size-4" /> Find alumni</Button></Link>
-            <Link to="/app/events"><Button variant="outline" className="gap-2"><Calendar className="size-4" /> Browse events</Button></Link>
+            <Link to="/app/finder" className="inline-flex"><Button className="gap-2"><Compass className="size-4" /> Find alumni</Button></Link>
+            <Link to="/app/events" className="inline-flex"><Button variant="outline" className="gap-2"><Calendar className="size-4" /> Browse events</Button></Link>
           </div>
         </div>
       </motion.div>
@@ -350,7 +363,18 @@ export default function StudentDashboard() {
                   {p.matchScore != null && (
                     <Badge variant="secondary" className="text-[9px] h-4 px-1.5 rounded-full">{Math.round(p.matchScore * 100)}% match</Badge>
                   )}
-                  <Button size="sm" variant="outline" className="h-7 px-2.5 opacity-0 group-hover:opacity-100 transition">Connect</Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2.5 opacity-0 group-hover:opacity-100 transition"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      sendConnectionRequest(p);
+                    }}
+                  >
+                    Connect
+                  </Button>
                 </div>
               </Link>
             ))}

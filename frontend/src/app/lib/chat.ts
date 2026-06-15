@@ -1,5 +1,6 @@
 // Chat types mirror the backend API contract (/chat/threads, /chat/threads/:id/messages).
 // All live data comes from the backend; nothing here is mocked.
+import { apiRequest, getAuthToken } from "./api";
 
 export type ChatMessage = {
   id: string;
@@ -38,3 +39,22 @@ export const aiSuggestions = [
   "Help me prep for my next session",
   "Summarize my pending referrals",
 ];
+
+export async function openDirectThread(userId: string): Promise<ChatThread> {
+  const token = getAuthToken();
+  if (!token) throw new Error("You need to be signed in to send messages.");
+  return apiRequest<ChatThread>("/chat/threads/direct", {
+    method: "POST",
+    token,
+    body: { userId },
+  });
+}
+
+export async function openAIThread(): Promise<ChatThread> {
+  const token = getAuthToken();
+  if (!token) throw new Error("You need to be signed in to chat with AI.");
+  return apiRequest<ChatThread>("/chat/threads/ai", {
+    method: "POST",
+    token,
+  });
+}

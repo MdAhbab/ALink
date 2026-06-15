@@ -362,6 +362,10 @@ class ChatMessageIn(BaseModel):
     body: str
 
 
+class ChatDirectIn(BaseModel):
+    user_id: str = Field(alias="userId")
+
+
 class ChatThreadOut(ORMBase):
     id: str
     title: str

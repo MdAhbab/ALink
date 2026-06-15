@@ -7,6 +7,7 @@ import { Button } from "../components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "../components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import { apiRequest, apiRequestAll, getAuthToken } from "../lib/api";
 import { LineChart, Line, ResponsiveContainer, XAxis, Tooltip, BarChart, Bar, CartesianGrid, Cell, PieChart, Pie, Legend } from "recharts";
 import { useAuth } from "../lib/auth";
@@ -151,6 +152,7 @@ export function AdminOverview() {
 
 export function AdminUsers() {
   const [people, setPeople] = React.useState<any[]>([]);
+  const [selectedUser, setSelectedUser] = React.useState<any | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const fetchUsers = React.useCallback(async (signal?: AbortSignal) => {
     const token = getAuthToken();
@@ -175,59 +177,93 @@ export function AdminUsers() {
   }, [fetchUsers]);
 
   return (
-    <Card><CardContent className="p-0">
-      <Table>
-        <TableHeader>
-          <TableRow><TableHead>User</TableHead><TableHead>Role</TableHead><TableHead>University</TableHead><TableHead>Status</TableHead><TableHead></TableHead></TableRow>
-        </TableHeader>
-        <TableBody>
-          {isLoading && (
-            <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Loading users...</TableCell></TableRow>
-          )}
-          {people.map(p => (
-            <TableRow key={p.id}>
-              <TableCell>
-                <div className="flex items-center gap-2">
-                  <Avatar className="size-8"><AvatarImage src={p.avatar} /><AvatarFallback>{p.name?.[0]}</AvatarFallback></Avatar>
-                  <div>
-                    <div className="text-sm">{p.name}</div>
-                    <div className="text-xs text-muted-foreground">{p.title}</div>
+    <>
+      <Card><CardContent className="p-0">
+        <Table>
+          <TableHeader>
+            <TableRow><TableHead>User</TableHead><TableHead>Role</TableHead><TableHead>University</TableHead><TableHead>Status</TableHead><TableHead></TableHead></TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading && (
+              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Loading users...</TableCell></TableRow>
+            )}
+            {people.map(p => (
+              <TableRow key={p.id}>
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    <Avatar className="size-8"><AvatarImage src={p.avatar} /><AvatarFallback>{p.name?.[0]}</AvatarFallback></Avatar>
+                    <div>
+                      <div className="text-sm">{p.name}</div>
+                      <div className="text-xs text-muted-foreground">{p.title}</div>
+                    </div>
+                  </div>
+                </TableCell>
+                <TableCell className="capitalize">{p.role}</TableCell>
+                <TableCell>{p.university}</TableCell>
+                <TableCell>{p.verified ? <Badge>Verified</Badge> : <Badge variant="outline">Pending</Badge>}</TableCell>
+                <TableCell className="text-right">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button size="sm" variant="ghost">Actions</Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onSelect={() => setSelectedUser(p)}>View Profile</DropdownMenuItem>
+                      <DropdownMenuItem className="text-[var(--rose)]" onClick={async () => {
+                        if (!confirm(`Are you sure you want to delete ${p.name}?`)) return;
+                        const token = getAuthToken();
+                        if (!token) return;
+                        try {
+                          await apiRequest(`/admin/users/${p.id}`, { method: "DELETE", token });
+                          toast.success(`Deleted ${p.name}`);
+                          fetchUsers();
+                        } catch (err: any) {
+                          toast.error("Failed to delete user", { description: err.message });
+                        }
+                      }}>Delete User</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
+              </TableRow>
+            ))}
+            {!isLoading && people.length === 0 && (
+              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">No users found.</TableCell></TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </CardContent></Card>
+      <Dialog open={!!selectedUser} onOpenChange={(open) => !open && setSelectedUser(null)}>
+        <DialogContent className="sm:max-w-lg">
+          {selectedUser && (
+            <>
+              <DialogHeader><DialogTitle>User profile</DialogTitle></DialogHeader>
+              <div className="flex items-start gap-4">
+                <Avatar className="size-16"><AvatarImage src={selectedUser.avatar} /><AvatarFallback>{selectedUser.name?.slice(0, 2)}</AvatarFallback></Avatar>
+                <div className="min-w-0">
+                  <div className="font-serif text-2xl">{selectedUser.name}</div>
+                  <div className="text-sm text-muted-foreground">{selectedUser.title || "No headline"}</div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <Badge variant="outline" className="capitalize">{selectedUser.role}</Badge>
+                    {selectedUser.verified ? <Badge>Verified</Badge> : <Badge variant="outline">Pending verification</Badge>}
                   </div>
                 </div>
-              </TableCell>
-              <TableCell className="capitalize">{p.role}</TableCell>
-              <TableCell>{p.university}</TableCell>
-              <TableCell>{p.verified ? <Badge>Verified</Badge> : <Badge variant="outline">Pending</Badge>}</TableCell>
-              <TableCell className="text-right">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button size="sm" variant="ghost">Actions</Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem>View Profile</DropdownMenuItem>
-                    <DropdownMenuItem className="text-[var(--rose)]" onClick={async () => {
-                      if (!confirm(`Are you sure you want to delete ${p.name}?`)) return;
-                      const token = getAuthToken();
-                      if (!token) return;
-                      try {
-                        await apiRequest(`/admin/users/${p.id}`, { method: "DELETE", token });
-                        toast.success(`Deleted ${p.name}`);
-                        fetchUsers();
-                      } catch (err: any) {
-                        toast.error("Failed to delete user", { description: err.message });
-                      }
-                    }}>Delete User</DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </TableCell>
-            </TableRow>
-          ))}
-          {!isLoading && people.length === 0 && (
-            <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">No users found.</TableCell></TableRow>
+              </div>
+              <div className="grid sm:grid-cols-2 gap-3 text-sm">
+                <Detail label="University" value={selectedUser.university || "—"} />
+                <Detail label="Major" value={selectedUser.major || "—"} />
+                <Detail label="Graduation year" value={selectedUser.graduationYear ?? "—"} />
+                <Detail label="Location" value={selectedUser.location || "—"} />
+              </div>
+              <Detail label="Bio" value={selectedUser.bio || "—"} />
+              {selectedUser.skills?.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {selectedUser.skills.map((skill: string) => <Badge key={skill} variant="secondary" className="rounded-full">{skill}</Badge>)}
+                </div>
+              )}
+            </>
           )}
-        </TableBody>
-      </Table>
-    </CardContent></Card>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -379,13 +415,14 @@ export function AdminReferrals() {
 
 export function AdminJobs() {
   const [jobPosts, setJobPosts] = React.useState<any[]>([]);
+  const [selectedJob, setSelectedJob] = React.useState<any | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const fetchJobs = React.useCallback(async (signal?: AbortSignal) => {
     const token = getAuthToken();
     if (!token) return;
     if (!signal) setIsLoading(true);
     try {
-      const data = await apiRequestAll<any>("/admin/jobs?status=pending", { token, signal });
+      const data = await apiRequestAll<any>("/admin/jobs", { token, signal });
       setJobPosts(data);
     } catch (err: any) {
       if (err?.name !== "AbortError") {
@@ -403,6 +440,7 @@ export function AdminJobs() {
   }, [fetchJobs]);
 
   return (
+    <>
     <Card><CardContent className="p-0">
       <Table>
         <TableHeader><TableRow><TableHead>Role</TableHead><TableHead>Company</TableHead><TableHead>Posted by</TableHead><TableHead>Status</TableHead><TableHead></TableHead></TableRow></TableHeader>
@@ -436,7 +474,7 @@ export function AdminJobs() {
                       }
                     }}>Approve</Button>
                   </div>
-                ) : <Button size="sm" variant="ghost">Open</Button>}
+                ) : <Button size="sm" variant="ghost" onClick={() => setSelectedJob(j)}>Open</Button>}
               </TableCell>
             </TableRow>
           ))}
@@ -444,6 +482,45 @@ export function AdminJobs() {
         </TableBody>
       </Table>
     </CardContent></Card>
+    <Dialog open={!!selectedJob} onOpenChange={(open) => !open && setSelectedJob(null)}>
+      <DialogContent className="sm:max-w-lg">
+        {selectedJob && (
+          <>
+            <DialogHeader><DialogTitle>Job post</DialogTitle></DialogHeader>
+            <div>
+              <div className="font-serif text-2xl">{selectedJob.role}</div>
+              <div className="text-sm text-muted-foreground">{selectedJob.company} · {selectedJob.location || "Location not specified"}</div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Badge variant="outline">{selectedJob.type}</Badge>
+                <Badge variant={selectedJob.status === "live" ? "default" : "outline"} className="capitalize">{selectedJob.status}</Badge>
+                {selectedJob.salary && <Badge variant="secondary">{selectedJob.salary}</Badge>}
+              </div>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-3 text-sm">
+              <Detail label="Posted by" value={selectedJob.postedBy?.name || "Unknown"} />
+              <Detail label="Posted" value={selectedJob.posted || "—"} />
+              <Detail label="Alumni count" value={selectedJob.alumniCount ?? 0} />
+              <Detail label="Company" value={selectedJob.company} />
+            </div>
+            {selectedJob.tags?.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {selectedJob.tags.map((tag: string) => <Badge key={tag} variant="secondary" className="rounded-full">{tag}</Badge>)}
+              </div>
+            )}
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+    </>
+  );
+}
+
+function Detail({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div>
+      <div className="text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className="mt-1">{value}</div>
+    </div>
   );
 }
 
