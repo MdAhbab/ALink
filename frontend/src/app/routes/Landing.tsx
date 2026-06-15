@@ -57,8 +57,8 @@ export default function Landing() {
           </nav>
           <div className="flex items-center gap-2">
             <ThemeToggle />
-            <Link to="/login"><Button variant="ghost">Log in</Button></Link>
-            <Link to="/register"><Button>Join ALink</Button></Link>
+            <Button asChild variant="ghost"><Link to="/login">Log in</Link></Button>
+            <Button asChild><Link to="/register">Join ALink</Link></Button>
           </div>
         </div>
       </header>
@@ -88,8 +88,8 @@ export default function Landing() {
               ALink connects students with verified alumni through mentorship, bookable consultations, and warm referrals — designed like the network you wish your campus had.
             </motion.p>
             <motion.div {...fade(0.15)} className="mt-7 flex flex-wrap items-center gap-3">
-              <Link to="/register"><Button size="lg" className="gap-2 group">Get started <ArrowRight className="size-4 group-hover:translate-x-0.5 transition" /></Button></Link>
-              <Link to="/login"><Button size="lg" variant="outline">I have an account</Button></Link>
+              <Button asChild size="lg" className="gap-2 group"><Link to="/register">Get started <ArrowRight className="size-4 group-hover:translate-x-0.5 transition" /></Link></Button>
+              <Button asChild size="lg" variant="outline"><Link to="/login">I have an account</Link></Button>
             </motion.div>
 
             <motion.div {...fade(0.2)} className="mt-8 flex items-center gap-3 text-sm text-muted-foreground">
@@ -225,8 +225,8 @@ export default function Landing() {
             <h2 className="font-serif text-4xl md:text-5xl mt-3">Give your alumni network a home worth visiting.</h2>
             <p className="mt-4 text-white/75 max-w-xl">ALink for Schools includes SSO, custom branding, verification workflows, jobs board moderation, and analytics dashboards.</p>
             <div className="mt-7 flex gap-3">
-              <Link to="/register"><Button size="lg" className="bg-white text-[#0B0D1F] hover:bg-white/90">Talk to us</Button></Link>
-              <Link to="/login"><Button size="lg" variant="ghost" className="text-white hover:bg-white/10">Sign in</Button></Link>
+              <Button asChild size="lg" className="bg-white text-[#0B0D1F] hover:bg-white/90"><Link to="/register">Talk to us</Link></Button>
+              <Button asChild size="lg" variant="ghost" className="text-white hover:bg-white/10"><Link to="/login">Sign in</Link></Button>
             </div>
           </motion.div>
           <motion.div {...fade(0.1)} className="lg:col-span-5 grid grid-cols-2 gap-3">
@@ -251,8 +251,8 @@ export default function Landing() {
         <motion.h2 {...fade()} className="font-serif text-4xl md:text-6xl">Make your next intro count.</motion.h2>
         <motion.p {...fade(0.05)} className="text-muted-foreground mt-3 max-w-xl mx-auto">Join thousands of students and alumni already meeting on ALink.</motion.p>
         <motion.div {...fade(0.1)} className="mt-7 inline-flex gap-3">
-          <Link to="/register"><Button size="lg" className="gap-2">Create account <Heart className="size-4" /></Button></Link>
-          <Link to="/login"><Button size="lg" variant="outline">Log in</Button></Link>
+          <Button asChild size="lg" className="gap-2"><Link to="/register">Create account <Heart className="size-4" /></Link></Button>
+          <Button asChild size="lg" variant="outline"><Link to="/login">Log in</Link></Button>
         </motion.div>
       </section>
 
@@ -405,7 +405,7 @@ function RolesSection() {
                 </li>
               ))}
             </ul>
-            <div className="mt-6"><Link to={`/register?role=${tab}`}><Button>Get started as {tab}</Button></Link></div>
+            <div className="mt-6"><Button asChild><Link to={`/register?role=${tab}`}>Get started as {tab}</Link></Button></div>
           </div>
           <RoleVisual role={tab} />
         </motion.div>

@@ -51,6 +51,12 @@ class Settings(BaseSettings):
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
 
     @property
+    def cors_origin_regex(self) -> str | None:
+        if self.is_production:
+            return None
+        return r"^https?://(localhost|127\.0\.0\.1):\d+$"
+
+    @property
     def is_production(self) -> bool:
         return self.environment.strip().lower() in {"production", "prod"}
 

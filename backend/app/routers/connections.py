@@ -41,6 +41,19 @@ def incoming_requests(
     )
 
 
+@router.get("/requests/sent", response_model=list[ConnectionRequestOut])
+def sent_requests(
+    db: Session = Depends(get_db),
+    current: User = Depends(get_current_user),
+) -> list[ConnectionRequest]:
+    return (
+        db.query(ConnectionRequest)
+        .filter(ConnectionRequest.from_id == current.id, ConnectionRequest.status == "pending")
+        .order_by(ConnectionRequest.created_at.desc())
+        .all()
+    )
+
+
 @router.post("/requests", response_model=ConnectionRequestOut, status_code=201)
 def send_request(
     body: ConnectionRequestIn,

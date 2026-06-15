@@ -19,7 +19,7 @@ Rarity = Literal["Common", "Rare", "Epic", "Legendary"]
 
 
 class ORMBase(BaseModel):
-    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True, serialize_by_alias=True)
 
 
 # ---------- Users ----------------------------------------------------------- #
@@ -121,6 +121,7 @@ class ConnectionRequestIn(BaseModel):
 class ConnectionRequestOut(ORMBase):
     id: str
     from_user: UserPublic = Field(alias="from")
+    to_id: str = Field(alias="toId")
     message: str
     created_at: datetime = Field(alias="at")
     status: str

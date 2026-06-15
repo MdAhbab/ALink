@@ -31,7 +31,7 @@ export default function Finder() {
     const controller = new AbortController();
     setIsLoading(true);
     apiRequestAll<any>("/users", { token, signal: controller.signal })
-      .then(setPeople)
+      .then((rows) => setPeople(rows.filter((p) => p.id !== user?.id)))
       .catch((err: any) => {
         if (err?.name !== "AbortError") {
           toast.error("Failed to fetch users", { description: err.message });
@@ -40,10 +40,10 @@ export default function Finder() {
       .finally(() => setIsLoading(false));
     // Fetch recommendations separately; failures are silently ignored
     apiRequest<any[]>("/recommendations/people?limit=8", { token, signal: controller.signal })
-      .then(setTopMatches)
+      .then((rows) => setTopMatches(rows.filter((p) => p.id !== user?.id)))
       .catch(() => {});
     return () => controller.abort();
-  }, []);
+  }, [user?.id]);
 
   const industries = Array.from(new Set(people.map(p => p.industry).filter(Boolean) as string[]));
   const universities = Array.from(new Set(people.map(p => p.university).filter(Boolean) as string[]));
@@ -181,7 +181,7 @@ export default function Finder() {
                   await apiRequest("/connections/requests", {
                     method: "POST",
                     token: getAuthToken() || undefined,
-                    body: { to_id: p.id, message: "Hi! I'd like to connect." },
+                    body: { toId: p.id, message: "" },
                   });
                   toast.success(`Request sent to ${p.name}`);
                 } catch (err: any) {

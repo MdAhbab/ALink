@@ -84,6 +84,8 @@ def list_users(
     current: User = Depends(get_current_user),
 ) -> list[User]:
     qry = db.query(User)
+    if current.role != "admin":
+        qry = qry.filter(User.id != current.id)
     if q:
         like = f"%{q}%"
         qry = qry.filter(or_(
@@ -100,11 +102,11 @@ def list_users(
         qry = qry.filter(User.verified == verified)
     users = qry.order_by(User.name).offset(offset).limit(limit).all()
     # Respect showInDirectory privacy preference — exclude opted-out users
-    # unless the requester is an admin or viewing their own profile
+    # from directory-style listings. The current user is available via /users/me.
     if current.role != "admin":
         users = [
             u for u in users
-            if u.id == current.id or (u.prefs or {}).get("showInDirectory", True)
+            if (u.prefs or {}).get("showInDirectory", True)
         ]
     return users
 
