@@ -235,6 +235,12 @@ class JobOut(ORMBase):
     posted_by: Optional[UserPublic] = Field(default=None, alias="postedBy")
     alumni_count: int = Field(alias="alumniCount")
     status: JobStatus
+    # Engagement is folded into list responses so the client no longer needs a
+    # per-card GET /jobs/{id}/engagement round-trip. Defaults keep single-job
+    # and recommendation payloads valid without extra queries.
+    likes_count: int = Field(default=0, alias="likesCount")
+    comments_count: int = Field(default=0, alias="commentsCount")
+    liked_by_me: bool = Field(default=False, alias="likedByMe")
 
 
 class PersonRecOut(UserPublic):

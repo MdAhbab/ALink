@@ -4,7 +4,7 @@ from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from ..database import get_db
 from ..deps import get_current_user
@@ -91,7 +91,11 @@ def list_bookings(
     db: Session = Depends(get_db),
     current: User = Depends(get_current_user),
 ) -> list[Booking]:
-    qry = db.query(Booking).filter(or_(Booking.owner_id == current.id, Booking.with_id == current.id))
+    qry = (
+        db.query(Booking)
+        .options(selectinload(Booking.with_user))
+        .filter(or_(Booking.owner_id == current.id, Booking.with_id == current.id))
+    )
     if status:
         qry = qry.filter(Booking.status == status)
     return qry.order_by(Booking.date.asc(), Booking.time.asc()).offset(offset).limit(limit).all()

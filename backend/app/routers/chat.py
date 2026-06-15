@@ -1,6 +1,7 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import and_, func
 from sqlalchemy.orm import Session
 
 from ..database import get_db
@@ -13,7 +14,28 @@ from ..schemas import ChatDirectIn, ChatMessageIn, ChatMessageOut, ChatThreadOut
 router = APIRouter(prefix="/chat", tags=["chat"])
 
 
+def _build_thread_out(
+    t: ChatThread,
+    members: list[User],
+    last: ChatMessage | None,
+    unread: int,
+    current: User,
+) -> ChatThreadOut:
+    title = t.title
+    if not t.is_ai and not t.is_group:
+        other = next((m for m in members if m.id != current.id), None)
+        if other:
+            title = other.name
+    return ChatThreadOut(
+        id=t.id, title=title, is_ai=t.is_ai, is_group=t.is_group, pinned=t.pinned,
+        members=[m for m in members],  # type: ignore[list-item]
+        last_message=last,  # type: ignore[arg-type]
+        unread_count=unread,
+    )
+
+
 def _serialize_thread(t: ChatThread, db: Session, current: User) -> ChatThreadOut:
+    """Serialize a single thread (used by create/pin endpoints)."""
     members = (
         db.query(User)
         .join(ChatMember, ChatMember.user_id == User.id)
@@ -35,17 +57,7 @@ def _serialize_thread(t: ChatThread, db: Session, current: User) -> ChatThreadOu
         )
         .count()
     )
-    title = t.title
-    if not t.is_ai and not t.is_group:
-        other = next((m for m in members if m.id != current.id), None)
-        if other:
-            title = other.name
-    return ChatThreadOut(
-        id=t.id, title=title, is_ai=t.is_ai, is_group=t.is_group, pinned=t.pinned,
-        members=[m for m in members],  # type: ignore[list-item]
-        last_message=last,  # type: ignore[arg-type]
-        unread_count=unread,
-    )
+    return _build_thread_out(t, members, last, unread, current)
 
 
 def _find_direct_thread(db: Session, current_id: str, target_id: str) -> ChatThread | None:
@@ -88,7 +100,63 @@ def list_threads(
         .order_by(ChatThread.pinned.desc(), ChatThread.created_at.desc())
         .all()
     )
-    return [_serialize_thread(t, db, current) for t in rows]
+    if not rows:
+        return []
+
+    ids = [t.id for t in rows]
+
+    # Members for every thread in one query.
+    members_by_thread: dict[str, list[User]] = {}
+    for tid, member in (
+        db.query(ChatMember.thread_id, User)
+        .join(User, User.id == ChatMember.user_id)
+        .filter(ChatMember.thread_id.in_(ids))
+        .all()
+    ):
+        members_by_thread.setdefault(tid, []).append(member)
+
+    # Last message per thread (max created_at) in one query.
+    latest = (
+        db.query(ChatMessage.thread_id, func.max(ChatMessage.created_at).label("mx"))
+        .filter(ChatMessage.thread_id.in_(ids))
+        .group_by(ChatMessage.thread_id)
+        .subquery()
+    )
+    last_by_thread: dict[str, ChatMessage] = {
+        m.thread_id: m
+        for m in db.query(ChatMessage).join(
+            latest,
+            and_(
+                ChatMessage.thread_id == latest.c.thread_id,
+                ChatMessage.created_at == latest.c.mx,
+            ),
+        )
+    }
+
+    # Unread counts per thread in one query (mirrors single-thread filter:
+    # messages from others that are unread; AI messages have a NULL sender and
+    # are excluded by the inequality, matching prior behaviour).
+    unread_by_thread: dict[str, int] = dict(
+        db.query(ChatMessage.thread_id, func.count(ChatMessage.id))
+        .filter(
+            ChatMessage.thread_id.in_(ids),
+            ChatMessage.sender_id != current.id,
+            ChatMessage.read == False,  # noqa: E712
+        )
+        .group_by(ChatMessage.thread_id)
+        .all()
+    )
+
+    return [
+        _build_thread_out(
+            t,
+            members_by_thread.get(t.id, []),
+            last_by_thread.get(t.id),
+            unread_by_thread.get(t.id, 0),
+            current,
+        )
+        for t in rows
+    ]
 
 
 @router.post("/threads/direct", response_model=ChatThreadOut)

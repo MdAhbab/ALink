@@ -1,6 +1,6 @@
 import uuid
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from ..database import get_db
 from ..deps import get_current_user
@@ -39,7 +39,7 @@ def create_program(
 
 @router.get("/programs", response_model=list[MentorProgramOut])
 def list_programs(db: Session = Depends(get_db), _: User = Depends(get_current_user)) -> list[MentorProgram]:
-    return db.query(MentorProgram).all()
+    return db.query(MentorProgram).options(selectinload(MentorProgram.mentor)).all()
 
 
 @router.post("/programs/{program_id}/apply", status_code=201)

@@ -115,22 +115,14 @@ function JobCard({
   onToggleSave: () => void;
   onRequestReferral: (job: any) => void;
 }) {
-  const [likes, setLikes] = React.useState(0);
-  const [commentsCount, setCommentsCount] = React.useState(0);
-  const [likedByMe, setLikedByMe] = React.useState(false);
+  // Engagement counts are folded into the /jobs list payload, so no per-card
+  // GET /jobs/{id}/engagement round-trip is needed on mount.
+  const [likes, setLikes] = React.useState<number>(j.likesCount ?? 0);
+  const [commentsCount, setCommentsCount] = React.useState<number>(j.commentsCount ?? 0);
+  const [likedByMe, setLikedByMe] = React.useState<boolean>(j.likedByMe ?? false);
   const [comments, setComments] = React.useState<any[]>([]);
   const [expanded, setExpanded] = React.useState(false);
   const [newComment, setNewComment] = React.useState("");
-
-  React.useEffect(() => {
-    const token = getAuthToken();
-    if (!token) return;
-    apiRequest<any>(`/jobs/${j.id}/engagement`, { token }).then(res => {
-      setLikes(res.likesCount);
-      setCommentsCount(res.commentsCount);
-      setLikedByMe(res.likedByMe);
-    }).catch(() => {});
-  }, [j.id]);
 
   const toggleLike = async () => {
     const token = getAuthToken();

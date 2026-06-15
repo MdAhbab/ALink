@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from ..database import get_db
 from ..deps import get_current_user
@@ -41,7 +41,7 @@ def list_stories(
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
 ) -> list[Story]:
-    qry = db.query(Story)
+    qry = db.query(Story).options(selectinload(Story.author))
     if tag:
         qry = qry.filter(Story.tag == tag)
     return qry.all()

@@ -13,7 +13,8 @@ from __future__ import annotations
 import math
 from datetime import date
 
-from sqlalchemy.orm import Session
+from sqlalchemy import func
+from sqlalchemy.orm import Session, selectinload
 
 from ..models import Connection, Job, JobComment, JobLike, User
 from .text import (
@@ -63,15 +64,18 @@ def _student_job_profile(user: User) -> str:
     return " ".join(parts).lower()
 
 
-def _connection_ids(db: Session, user_id: str) -> set[str]:
-    """Return the set of user IDs that *user_id* is connected to."""
-    rows = db.query(Connection).filter(
-        (Connection.a_id == user_id) | (Connection.b_id == user_id)
-    ).all()
-    ids: set[str] = set()
-    for row in rows:
-        ids.add(row.b_id if row.a_id == user_id else row.a_id)
-    return ids
+def _adjacency_map(db: Session) -> dict[str, set[str]]:
+    """Build the full connection adjacency map in a single query.
+
+    Returns ``{user_id: {neighbour_id, ...}}``. Computing this once avoids an
+    N+1 where each candidate's connections would otherwise be fetched
+    individually inside the recommendation loop.
+    """
+    adjacency: dict[str, set[str]] = {}
+    for a_id, b_id in db.query(Connection.a_id, Connection.b_id).all():
+        adjacency.setdefault(a_id, set()).add(b_id)
+        adjacency.setdefault(b_id, set()).add(a_id)
+    return adjacency
 
 
 def _content_scores_sklearn(current_doc: str, candidate_docs: list[str]) -> list[float]:
@@ -121,8 +125,9 @@ def recommend_people(
         # admin → recommend alumni
         target_role = "alumni"
 
-    # Collect IDs already connected
-    connected_ids = _connection_ids(db, current_user.id)
+    # Build the connection graph once (avoids per-candidate N+1 below).
+    adjacency = _adjacency_map(db)
+    connected_ids = adjacency.get(current_user.id, set())
 
     # Candidate pool: opposite role, not admin, not self, not already connected
     candidates: list[User] = (
@@ -175,7 +180,7 @@ def recommend_people(
             boosts += 0.04
 
         # Mutual-connection (2nd-degree) overlap
-        cand_conn_ids = _connection_ids(db, candidate.id)
+        cand_conn_ids = adjacency.get(candidate.id, set())
         if current_conn_ids or cand_conn_ids:
             mutual_jaccard = jaccard(current_conn_ids, cand_conn_ids)
             boosts += mutual_jaccard * 0.15
@@ -247,8 +252,13 @@ def recommend_jobs(
 
     Returns a list of (Job, score, matched_skills) tuples sorted by score descending.
     """
-    # Candidate pool: live jobs only
-    candidates: list[Job] = db.query(Job).filter(Job.status == "live").all()
+    # Candidate pool: live jobs only (eager-load poster for serialization).
+    candidates: list[Job] = (
+        db.query(Job)
+        .options(selectinload(Job.posted_by))
+        .filter(Job.status == "live")
+        .all()
+    )
     if not candidates:
         return []
 
@@ -262,12 +272,25 @@ def recommend_jobs(
     # Content scores
     content_scores = _content_scores(profile_doc, job_docs)
 
-    # Popularity: likes + comments per job, normalized to [0, 1]
-    popularity_raw: list[float] = []
-    for job in candidates:
-        likes = db.query(JobLike).filter(JobLike.job_id == job.id).count()
-        comments = db.query(JobComment).filter(JobComment.job_id == job.id).count()
-        popularity_raw.append(math.log1p(likes + comments))
+    # Popularity: likes + comments per job, normalized to [0, 1].
+    # Two grouped aggregates instead of 2×N point-counts (avoids an N+1).
+    job_ids = [j.id for j in candidates]
+    like_counts = dict(
+        db.query(JobLike.job_id, func.count(JobLike.id))
+        .filter(JobLike.job_id.in_(job_ids))
+        .group_by(JobLike.job_id)
+        .all()
+    )
+    comment_counts = dict(
+        db.query(JobComment.job_id, func.count(JobComment.id))
+        .filter(JobComment.job_id.in_(job_ids))
+        .group_by(JobComment.job_id)
+        .all()
+    )
+    popularity_raw: list[float] = [
+        math.log1p(like_counts.get(j.id, 0) + comment_counts.get(j.id, 0))
+        for j in candidates
+    ]
 
     max_pop = max(popularity_raw) if popularity_raw else 0.0
     popularity_norm = [p / max_pop if max_pop > 0 else 0.0 for p in popularity_raw]

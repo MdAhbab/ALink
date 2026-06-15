@@ -2,7 +2,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import or_, and_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from ..database import get_db
 from ..deps import get_current_user
@@ -35,6 +35,7 @@ def incoming_requests(
 ) -> list[ConnectionRequest]:
     return (
         db.query(ConnectionRequest)
+        .options(selectinload(ConnectionRequest.from_user))
         .filter(ConnectionRequest.to_id == current.id, ConnectionRequest.status == "pending")
         .order_by(ConnectionRequest.created_at.desc())
         .all()
@@ -48,6 +49,7 @@ def sent_requests(
 ) -> list[ConnectionRequest]:
     return (
         db.query(ConnectionRequest)
+        .options(selectinload(ConnectionRequest.from_user))
         .filter(ConnectionRequest.from_id == current.id, ConnectionRequest.status == "pending")
         .order_by(ConnectionRequest.created_at.desc())
         .all()
