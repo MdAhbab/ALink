@@ -7,7 +7,7 @@ import { PersonCard } from "../components/people/PersonCard";
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
-import { Search, SlidersHorizontal, X } from "lucide-react";
+import { Search, SlidersHorizontal, X, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import type { Role } from "./Auth";
 import { useNavigate } from "react-router";
@@ -54,6 +54,20 @@ export default function Finder() {
     [p.name, p.title, p.company, p.major].filter(Boolean).join(" ").toLowerCase().includes(debouncedQ.toLowerCase())
   );
 
+  const smartHints = React.useMemo(() => {
+    const query = debouncedQ.trim().toLowerCase();
+    const hints = [] as string[];
+    if (!query) {
+      hints.push("Start with a major, industry, or company to surface the best alumni matches.");
+    } else {
+      if (query.includes("ai") || query.includes("ml")) hints.push("AI and data roles are often the strongest signal for this query.");
+      if (query.includes("mentor") || query.includes("mentorship")) hints.push("Mentor-ready profiles usually show open-to-mentor or leadership experience.");
+      if (query.includes("job") || query.includes("intern")) hints.push("Job and internship keywords help surface people with recent hiring context.");
+      hints.push(`We matched ${filtered.length} result${filtered.length === 1 ? "" : "s"} using your current search intent.`);
+    }
+    return hints.slice(0, 3);
+  }, [debouncedQ, filtered.length]);
+
   return (
     <div className="space-y-6">
       <div className="rounded-3xl border border-border bg-card p-6">
@@ -96,6 +110,19 @@ export default function Finder() {
                 {u}
               </button>
             ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-border bg-card p-4">
+        <div className="flex items-start gap-3">
+          <div className="rounded-xl bg-[color:var(--brand-50)] dark:bg-[color:var(--brand-900)]/30 p-2 text-[var(--brand-600)] dark:text-[var(--brand-300)]"><Sparkles className="size-4" /></div>
+          <div>
+            <div className="text-sm font-medium">Smart Search AI</div>
+            <p className="text-xs text-muted-foreground">AI-style hints are generated from your current filters and query to help you narrow the right people faster.</p>
+            <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
+              {smartHints.map((hint) => <li key={hint} className="flex items-start gap-2"><span className="mt-1 size-1.5 rounded-full bg-[var(--brand-500)]" />{hint}</li>)}
+            </ul>
           </div>
         </div>
       </div>

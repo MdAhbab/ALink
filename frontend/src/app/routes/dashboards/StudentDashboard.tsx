@@ -8,7 +8,7 @@ import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent } from "../../components/ui/card";
 import { Progress } from "../../components/ui/progress";
-import { Calendar, Compass, Briefcase, BookOpen, Sparkles, Target, Trophy, ChevronRight, Flame, Users, Award, Trash2, Plus } from "lucide-react";
+import { Calendar, Compass, Briefcase, BookOpen, Sparkles, Target, Trophy, ChevronRight, Flame, Users, Award, Trash2, Plus, Link2, Pin, ShieldAlert } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "../../components/ui/dialog";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
@@ -17,6 +17,22 @@ import { timeAgo } from "../../lib/time";
 
 const stagger = { hidden: {}, visible: { transition: { staggerChildren: 0.05 } } };
 const item = { hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0, transition: { duration: 0.3 } } };
+
+const starterLinks = [
+  { id: "link-1", label: "Career fair schedule", url: "https://example.com/career-fair", pinned: true },
+  { id: "link-2", label: "Mentor office hours", url: "https://example.com/office-hours", pinned: false },
+  { id: "link-3", label: "Resume review hub", url: "https://example.com/resume-review", pinned: true },
+];
+
+function normalizeLink(raw: string) {
+  const value = raw.trim();
+  if (!value) return "";
+  try {
+    return new URL(value.startsWith("http") ? value : `https://${value}`).toString();
+  } catch {
+    return value;
+  }
+}
 
 export default function StudentDashboard() {
   const { user } = useAuth();
@@ -33,6 +49,9 @@ export default function StudentDashboard() {
   const [connections, setConnections] = React.useState<any[]>([]);
   const [requests, setRequests] = React.useState<any[]>([]);
   const [mentorPrograms, setMentorPrograms] = React.useState<any[]>([]);
+  const [importantLinks, setImportantLinks] = React.useState(starterLinks);
+  const [linkLabel, setLinkLabel] = React.useState("");
+  const [linkUrl, setLinkUrl] = React.useState("");
   const [isLoading, setIsLoading] = React.useState(true);
   const [goalsOpen, setGoalsOpen] = React.useState(false);
   const [prepOpen, setPrepOpen] = React.useState(false);
@@ -66,6 +85,22 @@ export default function StudentDashboard() {
 
   const upcoming = bookings.find(b => b.status === "upcoming");
   const earnedBadges = achievements.filter(a => a.earnedAt).length;
+  const pinnedLinks = importantLinks.filter(l => l.pinned);
+  const duplicateLinks = React.useMemo(() => {
+    const seen = new Set<string>();
+    return importantLinks.filter(item => {
+      const key = normalizeLink(item.url).toLowerCase();
+      if (!key || seen.has(key)) return true;
+      seen.add(key);
+      return false;
+    });
+  }, [importantLinks]);
+  const smartSummary = [
+    `${connections.length} active connections`,
+    `${bookings.length} session actions tracked`,
+    `${referrals.length} referral opportunities`,
+    `${Math.max(1, recommendedPeople.length)} AI-matched alumni suggestions`,
+  ];
   const calculatedLevel = Math.max(1, Math.floor(earnedBadges / 2) + 1);
   const levelTitle = calculatedLevel <= 1 ? "Novice" : calculatedLevel === 2 ? "Explorer" : calculatedLevel === 3 ? "Networker" : calculatedLevel === 4 ? "Connector" : "Master Mentor";
   const heroRef = React.useRef<HTMLDivElement | null>(null);
@@ -115,6 +150,80 @@ export default function StudentDashboard() {
             <Link to="/app/events"><Button variant="outline" className="gap-2"><Calendar className="size-4" /> Browse events</Button></Link>
           </div>
         </div>
+      </motion.div>
+
+      <motion.div variants={item} className="grid xl:grid-cols-[1.1fr_0.9fr] gap-5">
+        <Card className="overflow-hidden border-border/80 bg-card/95">
+          <CardContent className="p-5 space-y-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-xs uppercase tracking-[0.25em] text-muted-foreground">AI smart summary</div>
+                <h3 className="font-serif text-2xl mt-1">Your network pulse</h3>
+                <p className="text-sm text-muted-foreground">Quick intelligence about your recent momentum on ALink.</p>
+              </div>
+              <Sparkles className="size-5 text-[var(--brand-500)]" />
+            </div>
+            <div className="grid sm:grid-cols-2 gap-3">
+              {smartSummary.map((itemText) => (
+                <div key={itemText} className="rounded-2xl border border-border bg-muted/30 p-3 text-sm">{itemText}</div>
+              ))}
+            </div>
+            <div className="rounded-2xl border border-dashed border-[var(--brand-500)]/30 bg-[color:var(--brand-50)]/60 dark:bg-[color:var(--brand-900)]/20 p-3 text-xs text-muted-foreground">
+              Smart hint: your dashboard is now auto-highlighting the most meaningful moves for the week so you can act faster.
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="overflow-hidden border-border/80 bg-card/95">
+          <CardContent className="p-5 space-y-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-xs uppercase tracking-[0.25em] text-muted-foreground">Important links</div>
+                <h3 className="font-serif text-2xl mt-1">Pinned quick access</h3>
+              </div>
+              <Pin className="size-5 text-[var(--brand-500)]" />
+            </div>
+            <div className="space-y-2">
+              {importantLinks.length > 0 ? importantLinks.map((item) => (
+                <div key={item.id} className="flex items-center gap-2 rounded-xl border border-border bg-muted/30 p-3 text-sm hover:bg-muted/60 transition">
+                  <a href={normalizeLink(item.url)} target="_blank" rel="noreferrer" className="flex min-w-0 items-center gap-2 flex-1 truncate">
+                    <Link2 className="size-4 text-[var(--brand-500)]" />
+                    <span className="truncate">{item.label}</span>
+                  </a>
+                  <Button size="sm" variant={item.pinned ? "default" : "outline"} className="h-8 px-2" onClick={() => setImportantLinks(prev => prev.map(entry => entry.id === item.id ? { ...entry, pinned: !entry.pinned } : entry))}>
+                    {item.pinned ? "Pinned" : "Pin"}
+                  </Button>
+                </div>
+              )) : <div className="text-sm text-muted-foreground">Pin a link to keep it handy.</div>}
+            </div>
+            {duplicateLinks.length > 0 && (
+              <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-900 dark:text-amber-200">
+                <div className="flex items-center gap-1.5 font-semibold"><ShieldAlert className="size-3.5" /> Duplicate link detected</div>
+                <p className="mt-1">{duplicateLinks.length} saved link{duplicateLinks.length === 1 ? "" : "s"} share the same destination and may be worth consolidating.</p>
+              </div>
+            )}
+            <div className="space-y-2 rounded-2xl border border-border bg-muted/20 p-3">
+              <Input value={linkLabel} onChange={(e) => setLinkLabel(e.target.value)} placeholder="Link name" className="h-9" />
+              <Input value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} placeholder="https://example.com" className="h-9" />
+              <Button className="w-full h-9" onClick={() => {
+                const cleanedUrl = normalizeLink(linkUrl);
+                if (!linkLabel.trim() || !cleanedUrl) {
+                  toast.error("Add both a label and a valid link.");
+                  return;
+                }
+                const isDuplicate = importantLinks.some(item => normalizeLink(item.url).toLowerCase() === cleanedUrl.toLowerCase());
+                if (isDuplicate) {
+                  toast.warning("Duplicate link detected. Please reuse the existing entry instead.");
+                  return;
+                }
+                setImportantLinks(prev => [{ id: `link-${Date.now()}`, label: linkLabel.trim(), url: cleanedUrl, pinned: true }, ...prev]);
+                setLinkLabel("");
+                setLinkUrl("");
+                toast.success("Link saved to your quick-access tray.");
+              }}>Add important link</Button>
+            </div>
+          </CardContent>
+        </Card>
       </motion.div>
 
       {/* Stat tiles */}
