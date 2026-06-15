@@ -5,6 +5,7 @@ import {
   Bell, Calendar, Compass, Home, Inbox, Search, Settings, Users, Briefcase,
   Shield, LogOut, ChevronDown, Sparkles, Award, BookOpen, Trophy,
   User as UserIcon, PanelLeftClose, PanelLeftOpen, CalendarDays, Check, CheckCheck,
+  ClipboardList,
 } from "lucide-react";
 import { Logo } from "../brand/Logo";
 import { useAuth } from "../../lib/auth";
@@ -45,6 +46,7 @@ const secondaryNav = [
   { to: "/app/events", label: "Events", icon: Calendar },
   { to: "/app/stories", label: "Stories", icon: BookOpen },
   { to: "/app/achievements", label: "Achievements", icon: Trophy },
+  { to: "/app/course-planner", label: "Course Planner", icon: ClipboardList },
 ];
 const tailNav = [
   { to: "/app/profile", label: "Profile", icon: UserIcon },

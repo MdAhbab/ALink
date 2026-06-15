@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from "../ui/command";
 import { useNavigate } from "react-router";
-import { Calendar, CalendarDays, Compass, Home, Inbox, Search, Settings, Sparkles, User, Users, Briefcase, Shield, Award, BookOpen, Trophy } from "lucide-react";
+import { Calendar, CalendarDays, ClipboardList, Compass, Home, Inbox, Search, Settings, Sparkles, User, Users, Briefcase, Shield, Award, BookOpen, Trophy } from "lucide-react";
 import { useAuth } from "../../lib/auth";
 
 export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
@@ -27,6 +27,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
           <CommandItem onSelect={() => go("/app/events")}><Calendar className="size-4" /> Events</CommandItem>
           <CommandItem onSelect={() => go("/app/stories")}><BookOpen className="size-4" /> Stories</CommandItem>
           <CommandItem onSelect={() => go("/app/achievements")}><Trophy className="size-4" /> Achievements</CommandItem>
+          <CommandItem onSelect={() => go("/app/course-planner")}><ClipboardList className="size-4" /> Course Planner</CommandItem>
         </CommandGroup>
         <CommandSeparator />
         <CommandGroup heading="Actions">

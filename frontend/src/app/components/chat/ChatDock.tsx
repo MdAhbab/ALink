@@ -6,12 +6,13 @@ import {
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { Badge } from "../ui/badge";
-import { aiSuggestions, type ChatThread, type ChatMessage } from "../../lib/chat";
-import { apiRequest, getAuthToken } from "../../lib/api";
+import { aiSuggestions, openAIThread, type ChatThread, type ChatMessage } from "../../lib/chat";
+import { apiRequest, apiUpload, apiUrl, getAuthToken } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
 import { toast } from "sonner";
 
 const spring = { type: "spring", stiffness: 260, damping: 28, mass: 0.7 } as const;
+const emojiChoices = ["🙂", "😂", "😍", "👏", "🔥", "🎉", "💡", "🙏", "👍", "✨", "❤️", "🚀"];
 
 type FilterKey = "all" | "pinned" | "ai";
 
@@ -73,6 +74,24 @@ export function ChatDock() {
     } catch {}
   };
 
+  const startAIChat = async () => {
+    try {
+      const thread = await openAIThread();
+      setOpen(true);
+      setThreads((items) => {
+        const exists = items.some((item) => item.id === thread.id);
+        return exists ? items.map((item) => item.id === thread.id ? thread : item) : [thread, ...items];
+      });
+      setActiveId(thread.id);
+      const token = getAuthToken();
+      if (token) {
+        await apiRequest(`/chat/threads/${thread.id}/read`, { method: "POST", token });
+      }
+    } catch (err: any) {
+      toast.error("Failed to open AI chat", { description: err.message });
+    }
+  };
+
   const handleCloseActive = () => {
     setActiveId(null);
     fetchThreads();
@@ -130,7 +149,7 @@ export function ChatDock() {
                       transition={spring}
                       className="flex-1 flex flex-col min-h-0"
                     >
-                      <DockHeader onClose={() => setOpen(false)} />
+                      <DockHeader onClose={() => setOpen(false)} onOpenAI={startAIChat} />
                       <div className="px-3 py-2 border-b border-border/60">
                         <div className="flex items-center gap-2 h-9 px-3 rounded-xl bg-card/70 border border-border">
                           <Search className="size-3.5 text-muted-foreground" />
@@ -211,7 +230,7 @@ export function ChatDock() {
   );
 }
 
-function DockHeader({ onClose }: { onClose: () => void }) {
+function DockHeader({ onClose, onOpenAI }: { onClose: () => void; onOpenAI: () => void }) {
   return (
     <div className="flex items-center gap-3 px-4 h-14 border-b border-border/60">
       <span className="grid place-items-center size-8 rounded-full brand-gradient text-white">
@@ -221,6 +240,12 @@ function DockHeader({ onClose }: { onClose: () => void }) {
         <div className="text-sm">Messages</div>
         <div className="text-[11px] text-muted-foreground">AI + people + groups</div>
       </div>
+      <button
+        onClick={onOpenAI}
+        className="h-8 px-2.5 inline-flex items-center gap-1.5 rounded-full brand-gradient text-white text-xs"
+      >
+        <Bot className="size-3.5" /> AI Chat
+      </button>
       <button onClick={onClose} aria-label="Close" className="size-8 grid place-items-center rounded-full hover:bg-muted">
         <X className="size-4" />
       </button>
@@ -310,7 +335,11 @@ function ThreadView({
 }) {
   const [text, setText] = React.useState("");
   const [messages, setMessages] = React.useState<ChatMessage[]>([]);
+  const [emojiOpen, setEmojiOpen] = React.useState(false);
+  const [isUploading, setIsUploading] = React.useState(false);
   const scrollRef = React.useRef<HTMLDivElement | null>(null);
+  const fileRef = React.useRef<HTMLInputElement | null>(null);
+  const textRef = React.useRef<HTMLTextAreaElement | null>(null);
 
   const fetchMessages = React.useCallback(async () => {
     const token = getAuthToken();
@@ -364,8 +393,53 @@ function ThreadView({
     } catch {}
   };
 
+  const insertEmoji = (emoji: string) => {
+    const el = textRef.current;
+    if (!el) {
+      setText((current) => `${current}${emoji}`);
+      return;
+    }
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    const next = `${text.slice(0, start)}${emoji}${text.slice(end)}`;
+    setText(next);
+    setEmojiOpen(false);
+    requestAnimationFrame(() => {
+      el.focus();
+      const cursor = start + emoji.length;
+      el.setSelectionRange(cursor, cursor);
+    });
+  };
+
+  const uploadImage = async (file?: File) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please choose an image file.");
+      return;
+    }
+    const token = getAuthToken();
+    if (!token) return;
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const uploaded = await apiUpload<{ url: string; filename: string }>("/uploads/chat-image", formData, { token });
+      await submit(`![${uploaded.filename}](${uploaded.url})`);
+      toast.success("Image sent");
+    } catch (err: any) {
+      toast.error("Failed to upload image", { description: err.message });
+    } finally {
+      setIsUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
   const otherMember = thread.members.find(m => m.id !== userId) || thread.members[0];
   const avatarUrl = thread.isAI ? "" : thread.isGroup ? "" : otherMember?.avatar;
+  const openCallRoom = (mode: "call" | "video") => {
+    toast.info(`${mode === "video" ? "Opening video room" : "Opening call room"} for ${thread.title}`);
+    window.open("https://meet.google.com/new", "_blank", "noopener,noreferrer");
+  };
 
   return (
     <motion.div
@@ -407,14 +481,14 @@ function ThreadView({
         {!thread.isAI && !thread.isGroup && (
           <>
             <button
-              onClick={() => toast.info("Direct calls are currently disabled in local sandbox mode.")}
+              onClick={() => openCallRoom("call")}
               className="size-8 grid place-items-center rounded-full hover:bg-muted text-muted-foreground"
               aria-label="Call"
             >
               <Phone className="size-4" />
             </button>
             <button
-              onClick={() => toast.info("Direct calls are currently disabled in local sandbox mode.")}
+              onClick={() => openCallRoom("video")}
               className="size-8 grid place-items-center rounded-full hover:bg-muted text-muted-foreground"
               aria-label="Video"
             >
@@ -453,14 +527,48 @@ function ThreadView({
         )}
       </div>
 
-      <div className="border-t border-border/60 p-2 flex items-end gap-1.5">
-        <button className="size-9 grid place-items-center rounded-full hover:bg-muted text-muted-foreground" aria-label="Attach">
+      <div className="relative border-t border-border/60 p-2 flex items-end gap-1.5">
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/gif"
+          className="hidden"
+          onChange={(e) => uploadImage(e.target.files?.[0])}
+        />
+        <button
+          onClick={() => fileRef.current?.click()}
+          disabled={isUploading}
+          className="size-9 grid place-items-center rounded-full hover:bg-muted text-muted-foreground disabled:opacity-50"
+          aria-label="Upload image"
+          title="Upload image"
+        >
           <Paperclip className="size-4" />
         </button>
-        <button className="size-9 grid place-items-center rounded-full hover:bg-muted text-muted-foreground" aria-label="Emoji">
+        <button
+          onClick={() => setEmojiOpen((open) => !open)}
+          className="size-9 grid place-items-center rounded-full hover:bg-muted text-muted-foreground"
+          aria-label="Choose emoji"
+          title="Choose emoji"
+        >
           <Smile className="size-4" />
         </button>
+        {emojiOpen && (
+          <div className="absolute bottom-14 left-12 z-10 grid grid-cols-6 gap-1 rounded-2xl border border-border bg-card p-2 shadow-[var(--shadow-lg)]">
+            {emojiChoices.map((emoji) => (
+              <button
+                key={emoji}
+                type="button"
+                onClick={() => insertEmoji(emoji)}
+                className="size-8 rounded-lg text-lg hover:bg-muted"
+                aria-label={`Insert ${emoji}`}
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+        )}
         <textarea
+          ref={textRef}
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
@@ -485,9 +593,16 @@ function ThreadView({
   );
 }
 
+function imageFromMessage(body: string): { alt: string; url: string } | null {
+  const match = body.match(/^!\[(.*)]\((\/static\/[^)]+)\)$/);
+  if (!match) return null;
+  return { alt: match[1] || "Shared image", url: match[2] };
+}
+
 function Bubble({ m, mine }: { m: ChatMessage; mine: boolean }) {
   const isAI = m.isAI;
   const dateStr = new Date(m.at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+  const image = imageFromMessage(m.body);
   return (
     <motion.div
       layout
@@ -505,7 +620,13 @@ function Bubble({ m, mine }: { m: ChatMessage; mine: boolean }) {
             : "bg-muted text-foreground rounded-bl-sm"
         }`}
       >
-        {m.body}
+        {image ? (
+          <a href={apiUrl(image.url)} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-xl">
+            <img src={apiUrl(image.url)} alt={image.alt} className="max-h-56 w-full object-cover" />
+          </a>
+        ) : (
+          m.body
+        )}
         <div className={`mt-1 text-[10px] ${mine ? "text-white/70" : "text-muted-foreground"} flex items-center gap-1 justify-end`}>
           <span>{dateStr}</span>
           {mine && <span className="capitalize">· {m.read ? "read" : "sent"}</span>}
@@ -514,4 +635,3 @@ function Bubble({ m, mine }: { m: ChatMessage; mine: boolean }) {
     </motion.div>
   );
 }
-
