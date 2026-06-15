@@ -102,7 +102,7 @@ export default function Stories() {
       {/* List */}
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
         {stories.slice(2).length > 0 ? stories.slice(2).map((s, i) => (
-          <motion.div key={s.id} whileHover={{ y: -3 }} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
+          <motion.div key={s.id} whileHover={{ y: -3 }} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(i, 12) * 0.05 }}>
             <Card className="overflow-hidden h-full">
               <div className="h-28 relative" style={{ background: `linear-gradient(135deg, ${s.cover}, ${s.cover}55)` }}>
                 <Quote className="absolute bottom-3 right-3 size-6 text-white/70" />

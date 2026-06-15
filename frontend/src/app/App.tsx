@@ -2,14 +2,21 @@ import * as React from "react";
 import { BrowserRouter, MemoryRouter, Routes, Route, Navigate } from "react-router";
 import { AuthProvider, useAuth } from "./lib/auth";
 import { ThemeProvider } from "./lib/theme";
+import { PreferencesGate } from "./lib/preferences";
 import { AppShell } from "./components/shell/AppShell";
 import Landing from "./routes/Landing";
 import { LoginPage, RegisterPage, OnboardingPage } from "./routes/Auth";
 import NotFound from "./routes/NotFound";
-import {
-  AdminGate, AdminOverview, AdminUsers, AdminVerifications,
-  AdminBookings, AdminReferrals, AdminJobs,
-} from "./routes/Admin";
+
+// Admin is lazy-loaded so its Recharts dependency stays out of the initial
+// bundle for the (vast majority of) non-admin users.
+const AdminGate = React.lazy(() => import("./routes/Admin").then((m) => ({ default: m.AdminGate })));
+const AdminOverview = React.lazy(() => import("./routes/Admin").then((m) => ({ default: m.AdminOverview })));
+const AdminUsers = React.lazy(() => import("./routes/Admin").then((m) => ({ default: m.AdminUsers })));
+const AdminVerifications = React.lazy(() => import("./routes/Admin").then((m) => ({ default: m.AdminVerifications })));
+const AdminBookings = React.lazy(() => import("./routes/Admin").then((m) => ({ default: m.AdminBookings })));
+const AdminReferrals = React.lazy(() => import("./routes/Admin").then((m) => ({ default: m.AdminReferrals })));
+const AdminJobs = React.lazy(() => import("./routes/Admin").then((m) => ({ default: m.AdminJobs })));
 
 const Dashboard = React.lazy(() => import("./routes/Dashboard"));
 const Profile = React.lazy(() => import("./routes/Profile"));
@@ -25,6 +32,7 @@ const Jobs = React.lazy(() => import("./routes/Jobs"));
 const Stories = React.lazy(() => import("./routes/Stories"));
 const Achievements = React.lazy(() => import("./routes/Achievements"));
 const Calendar = React.lazy(() => import("./routes/Calendar"));
+const CoursePlanner = React.lazy(() => import("./routes/CoursePlanner"));
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
@@ -54,6 +62,7 @@ export default function App() {
   return (
     <ThemeProvider>
     <AuthProvider>
+      <PreferencesGate>
       <Router>
         <React.Suspense fallback={<Loading />}>
           <Routes>
@@ -77,6 +86,7 @@ export default function App() {
               <Route path="/app/jobs" element={<Jobs />} />
               <Route path="/app/stories" element={<Stories />} />
               <Route path="/app/achievements" element={<Achievements />} />
+              <Route path="/app/course-planner" element={<CoursePlanner />} />
 
               <Route path="/admin" element={<AdminGate />}>
                 <Route index element={<AdminOverview />} />
@@ -92,6 +102,7 @@ export default function App() {
           </Routes>
         </React.Suspense>
       </Router>
+      </PreferencesGate>
     </AuthProvider>
     </ThemeProvider>
   );

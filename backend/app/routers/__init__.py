@@ -1,7 +1,7 @@
 from . import (
     auth, users, connections, bookings, referrals, events, jobs, stories,
     mentorship, achievements, notifications, activity, chat, verifications,
-    settings as settings_router, admin, goals, uploads,
+    settings as settings_router, admin, goals, uploads, recommendations,
 )
 
 ALL_ROUTERS = [
@@ -23,4 +23,5 @@ ALL_ROUTERS = [
     goals.router,
     admin.router,
     uploads.router,
+    recommendations.router,
 ]

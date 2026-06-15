@@ -264,7 +264,7 @@ export default function CalendarRoute() {
                     key={it.kind + it.id}
                     initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: idx * 0.03 }}
+                    transition={{ delay: Math.min(idx, 12) * 0.03 }}
                   >
                     {it.kind === "booking" ? (
                       <button

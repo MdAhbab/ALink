@@ -112,52 +112,7 @@ export default function Bookings() {
                 </div>
               )}
               {bookings.filter(b => b.status === s).map(b => (
-                <motion.div layout key={b.id}>
-                  <Card>
-                    <CardContent className="p-5">
-                      <div className="flex items-center gap-3">
-                        <Avatar className="size-12"><AvatarImage src={b.with?.avatar} /><AvatarFallback>{b.with?.name?.[0]}</AvatarFallback></Avatar>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm">{b.with?.name}</div>
-                          <div className="text-xs text-muted-foreground">{b.with?.title}{b.with?.company ? ` · ${b.with?.company}` : ""}</div>
-                        </div>
-                        <Badge className={status[b.status]?.cls}>{status[b.status]?.label}</Badge>
-                      </div>
-
-                      <div className="mt-4">
-                        <div className="font-serif text-xl">{b.topic}</div>
-                        <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1.5">
-                          <span className="inline-flex items-center gap-1"><Calendar className="size-3.5" /> {bookingDate(b)}</span>
-                          <span className="inline-flex items-center gap-1"><Clock className="size-3.5" /> {bookingTime(b)} · {b.duration}m</span>
-                        </div>
-                      </div>
-
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        {b.status === "upcoming" && b.meetingLink && (
-                          <Button size="sm" className="gap-2" onClick={() => window.open(b.meetingLink, "_blank")}>
-                            <Video className="size-3.5" /> Join meeting
-                          </Button>
-                        )}
-                        {b.status === "upcoming" && (
-                          <>
-                            <Button size="sm" variant="outline">Reschedule</Button>
-                            <Button size="sm" variant="ghost">Cancel</Button>
-                          </>
-                        )}
-                        {b.status === "pending" && (
-                          <Button size="sm" variant="outline">Withdraw request</Button>
-                        )}
-                        {b.status === "completed" && (
-                          <Button size="sm" variant="outline">Leave feedback</Button>
-                        )}
-                      </div>
-
-                      {b.meetingLink && b.status === "upcoming" && (
-                        <div className="mt-3 text-xs text-muted-foreground inline-flex items-center gap-1"><LinkIcon className="size-3" /> {b.meetingLink}</div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </motion.div>
+                <BookingCard key={b.id} b={b} onRefetch={fetchData} />
               ))}
               {!isLoading && bookings.filter(b => b.status === s).length === 0 && (
                 <div className="md:col-span-2 text-center text-muted-foreground py-12 rounded-2xl border border-dashed border-border">
@@ -169,6 +124,149 @@ export default function Bookings() {
         ))}
       </Tabs>
     </div>
+  );
+}
+
+function BookingCard({ b, onRefetch }: { b: any; onRefetch: () => void }) {
+  const [reschedOpen, setReschedOpen] = React.useState(false);
+  const [feedbackOpen, setFeedbackOpen] = React.useState(false);
+  const [reschedDate, setReschedDate] = React.useState(bookingDate(b) || "");
+  const [reschedTime, setReschedTime] = React.useState(bookingTime(b) || "");
+  const [feedbackText, setFeedbackText] = React.useState("");
+  const [submitting, setSubmitting] = React.useState(false);
+
+  const handleDelete = async () => {
+    const token = getAuthToken();
+    if (!token) return;
+    try {
+      await apiRequest(`/bookings/${b.id}`, { method: "DELETE", token });
+      toast.success("Booking cancelled");
+      onRefetch();
+    } catch (err: any) {
+      toast.error("Failed to cancel booking", { description: err.message });
+    }
+  };
+
+  const handleReschedule = async () => {
+    if (!reschedDate || !reschedTime) { toast.error("Please select a date and time"); return; }
+    const token = getAuthToken();
+    if (!token) return;
+    setSubmitting(true);
+    try {
+      await apiRequest(`/bookings/${b.id}`, {
+        method: "PATCH",
+        token,
+        body: {
+          date: reschedDate,
+          time: reschedTime,
+          startsAt: new Date(`${reschedDate}T${reschedTime}`).toISOString(),
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        },
+      });
+      toast.success("Booking rescheduled");
+      setReschedOpen(false);
+      onRefetch();
+    } catch (err: any) {
+      toast.error("Failed to reschedule", { description: err.message });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <motion.div layout>
+      <Card>
+        <CardContent className="p-5">
+          <div className="flex items-center gap-3">
+            <Avatar className="size-12"><AvatarImage src={b.with?.avatar} /><AvatarFallback>{b.with?.name?.[0]}</AvatarFallback></Avatar>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm">{b.with?.name}</div>
+              <div className="text-xs text-muted-foreground">{b.with?.title}{b.with?.company ? ` · ${b.with?.company}` : ""}</div>
+            </div>
+            <Badge className={status[b.status]?.cls}>{status[b.status]?.label}</Badge>
+          </div>
+
+          <div className="mt-4">
+            <div className="font-serif text-xl">{b.topic}</div>
+            <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1.5">
+              <span className="inline-flex items-center gap-1"><Calendar className="size-3.5" /> {bookingDate(b)}</span>
+              <span className="inline-flex items-center gap-1"><Clock className="size-3.5" /> {bookingTime(b)} · {b.duration}m</span>
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            {b.status === "upcoming" && b.meetingLink && (
+              <Button size="sm" className="gap-2" onClick={() => window.open(b.meetingLink, "_blank")}>
+                <Video className="size-3.5" /> Join meeting
+              </Button>
+            )}
+            {b.status === "upcoming" && (
+              <>
+                <Dialog open={reschedOpen} onOpenChange={setReschedOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" variant="outline">Reschedule</Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-sm">
+                    <DialogHeader>
+                      <DialogTitle>Reschedule session</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-3 mt-2">
+                      <div className="space-y-1.5">
+                        <Label>Date</Label>
+                        <Input type="date" value={reschedDate} onChange={(e) => setReschedDate(e.target.value)} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Time</Label>
+                        <Input type="time" value={reschedTime} onChange={(e) => setReschedTime(e.target.value)} />
+                      </div>
+                    </div>
+                    <div className="flex gap-2 justify-end mt-4">
+                      <Button variant="ghost" onClick={() => setReschedOpen(false)} disabled={submitting}>Cancel</Button>
+                      <Button onClick={handleReschedule} disabled={submitting || !reschedDate || !reschedTime}>
+                        {submitting ? "Saving…" : "Confirm"}
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+                <Button size="sm" variant="ghost" onClick={handleDelete}>Cancel</Button>
+              </>
+            )}
+            {b.status === "pending" && (
+              <Button size="sm" variant="outline" onClick={handleDelete}>Withdraw request</Button>
+            )}
+            {b.status === "completed" && (
+              <Dialog open={feedbackOpen} onOpenChange={setFeedbackOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" variant="outline">Leave feedback</Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-sm">
+                  <DialogHeader>
+                    <DialogTitle>Leave feedback</DialogTitle>
+                  </DialogHeader>
+                  <Textarea
+                    rows={4}
+                    placeholder="Share your thoughts about this session…"
+                    value={feedbackText}
+                    onChange={(e) => setFeedbackText(e.target.value)}
+                    className="mt-2"
+                  />
+                  <div className="flex gap-2 justify-end mt-4">
+                    <Button variant="ghost" onClick={() => setFeedbackOpen(false)}>Cancel</Button>
+                    <Button onClick={() => { toast.success("Feedback submitted, thank you!"); setFeedbackOpen(false); setFeedbackText(""); }}>
+                      Submit
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            )}
+          </div>
+
+          {b.meetingLink && b.status === "upcoming" && (
+            <div className="mt-3 text-xs text-muted-foreground inline-flex items-center gap-1"><LinkIcon className="size-3" /> {b.meetingLink}</div>
+          )}
+        </CardContent>
+      </Card>
+    </motion.div>
   );
 }
 

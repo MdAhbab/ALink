@@ -16,30 +16,79 @@ import {
   GraduationCap, Linkedin, Github, Globe, Mail, Sparkles, UploadCloud,
 } from "lucide-react";
 import { toast } from "sonner";
-import { apiRequest, getAuthToken } from "../lib/api";
+import { apiRequest, apiUpload, getAuthToken } from "../lib/api";
 import { AvatarPicker } from "../components/profile/AvatarPicker";
+
+const COVER_OPTIONS = [
+  {
+    id: "aurora",
+    name: "Aurora",
+    background:
+      "radial-gradient(circle at 12% 20%, rgba(255,255,255,0.38), transparent 24%), linear-gradient(110deg, #7C5CFF 0%, #B7A2F5 48%, #F5B461 100%)",
+  },
+  {
+    id: "campus",
+    name: "Campus",
+    background:
+      "linear-gradient(135deg, rgba(11,13,31,0.24), rgba(11,13,31,0.02)), linear-gradient(120deg, #2E7DFF 0%, #5DE0B0 48%, #F8D66D 100%)",
+  },
+  {
+    id: "midnight",
+    name: "Midnight",
+    background:
+      "radial-gradient(circle at 80% 18%, rgba(255,255,255,0.20), transparent 22%), linear-gradient(115deg, #101828 0%, #4E54C8 52%, #8F94FB 100%)",
+  },
+  {
+    id: "sunset",
+    name: "Sunset",
+    background:
+      "radial-gradient(circle at 18% 72%, rgba(255,255,255,0.28), transparent 24%), linear-gradient(120deg, #FF6B8A 0%, #F5B461 48%, #FFE29F 100%)",
+  },
+  {
+    id: "graph",
+    name: "Graph",
+    background:
+      "linear-gradient(90deg, rgba(255,255,255,0.16) 1px, transparent 1px), linear-gradient(rgba(255,255,255,0.16) 1px, transparent 1px), linear-gradient(120deg, #243B55 0%, #5DE0B0 52%, #7C5CFF 100%)",
+    backgroundSize: "42px 42px, 42px 42px, auto",
+  },
+] as const;
+
+function getCover(id?: string) {
+  return COVER_OPTIONS.find((cover) => cover.id === id) ?? COVER_OPTIONS[0];
+}
 
 export default function Profile() {
   const { user, update } = useAuth();
   const [editing, setEditing] = React.useState(false);
-  const [draft, setDraft] = React.useState(user!);
+  const [draft, setDraft] = React.useState(user);
   const [skillDraft, setSkillDraft] = React.useState("");
   const [avatarOpen, setAvatarOpen] = React.useState(false);
   const coverRef = React.useRef<HTMLDivElement | null>(null);
+
+  React.useEffect(() => {
+    if (user) setDraft(user);
+  }, [user]);
   const reduce = useReducedMotion();
   const { scrollYProgress } = useScroll({ target: coverRef, offset: ["start start", "end start"] });
   const coverY = useTransform(scrollYProgress, [0, 1], [0, reduce ? 0 : 40]);
   const shineX = useTransform(scrollYProgress, [0, 1], [0, reduce ? 0 : 60]);
   const blobY = useTransform(scrollYProgress, [0, 1], [0, reduce ? 0 : -30]);
-  if (!user) return null;
+  if (!user || !draft) return null;
+  const activeUser = editing ? draft : user;
+  const activeCover = getCover(activeUser.prefs?.profileCover);
 
-  const save = () => {
-    update(draft);
-    setEditing(false);
-    toast.success("Profile updated", { description: "Your changes are visible to others." });
+  const save = async () => {
+    if (!draft) return;
+    try {
+      await update(draft);
+      setEditing(false);
+      toast.success("Profile updated", { description: "Your changes are visible to others." });
+    } catch (error: any) {
+      toast.error("Failed to save profile", { description: error?.message || "Please try again." });
+    }
   };
 
-  const cancel = () => { setDraft(user); setEditing(false); };
+  const cancel = () => { if (user) setDraft(user); setEditing(false); };
 
   const addSkill = () => {
     const v = skillDraft.trim();
@@ -49,17 +98,25 @@ export default function Profile() {
   };
   const removeSkill = (s: string) =>
     setDraft({ ...draft, skills: draft.skills.filter((x) => x !== s) });
+  const setCover = (profileCover: string) =>
+    setDraft({ ...draft, prefs: { ...(draft.prefs || {}), profileCover } });
 
   return (
     <div className="space-y-6">
       {/* Cover + header */}
       <motion.div ref={coverRef} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="relative overflow-hidden rounded-3xl border border-border">
-        <div className="h-40 brand-gradient relative overflow-hidden">
+        <div
+          className="h-40 relative overflow-hidden"
+          style={{
+            background: activeCover.background,
+            backgroundSize: activeCover.backgroundSize,
+          }}
+        >
           <motion.div aria-hidden style={{ y: coverY, x: shineX }} className="absolute inset-0 bg-[radial-gradient(80%_60%_at_20%_20%,rgba(255,255,255,0.35),transparent)]" />
           <motion.div aria-hidden style={{ y: blobY }} className="absolute -right-10 -top-10 size-48 rounded-full bg-white/15 blur-2xl" />
         </div>
-        <div className="-mt-16 px-6 pb-6 flex flex-col md:flex-row gap-5 md:items-end bg-card">
-          <div className="relative shrink-0">
+        <div className="relative z-10 -mt-16 px-6 pb-6 flex flex-col md:flex-row gap-5 md:items-start bg-card">
+          <div className="relative z-20 shrink-0">
             <Avatar className="size-32 ring-4 ring-card">
               <AvatarImage src={(editing ? draft : user).avatar} />
               <AvatarFallback>{user.name.slice(0, 2)}</AvatarFallback>
@@ -74,9 +131,9 @@ export default function Profile() {
               </button>
             )}
           </div>
-          <div className="flex-1 min-w-0">
+          <div className="relative z-20 flex-1 min-w-0 md:pt-16">
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="font-serif text-4xl">{(editing ? draft : user).name}</h1>
+              <h1 className="font-serif text-4xl">{activeUser.name}</h1>
               {user.verified ? (
                 <Badge className="gap-1"><CheckCircle2 className="size-3" /> Verified</Badge>
               ) : (
@@ -84,14 +141,36 @@ export default function Profile() {
               )}
             </div>
             <p className="text-muted-foreground">
-              {(editing ? draft : user).title}{(editing ? draft.company : user.company) ? ` · ${editing ? draft.company : user.company}` : ""}
+              {activeUser.title}{activeUser.company ? ` · ${activeUser.company}` : ""}
             </p>
             <p className="text-sm text-muted-foreground inline-flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
-              <span className="inline-flex items-center gap-1.5"><GraduationCap className="size-3.5" />{(editing ? draft : user).university}{user.graduationYear ? ` · Class of ${user.graduationYear}` : ""}</span>
-              <span className="inline-flex items-center gap-1.5"><MapPin className="size-3.5" />{(editing ? draft : user).location}</span>
+              <span className="inline-flex items-center gap-1.5"><GraduationCap className="size-3.5" />{activeUser.university}{activeUser.graduationYear ? ` · Class of ${activeUser.graduationYear}` : ""}</span>
+              <span className="inline-flex items-center gap-1.5"><MapPin className="size-3.5" />{activeUser.location}</span>
             </p>
+            {editing && (
+              <div className="mt-4 flex flex-wrap gap-2">
+                {COVER_OPTIONS.map((cover) => (
+                  <button
+                    key={cover.id}
+                    type="button"
+                    onClick={() => setCover(cover.id)}
+                    className={`h-10 w-20 rounded-lg border transition ${
+                      activeCover.id === cover.id
+                        ? "border-[var(--brand-600)] ring-2 ring-[color:var(--brand-200)]"
+                        : "border-border hover:border-[var(--brand-300)]"
+                    }`}
+                    style={{
+                      background: cover.background,
+                      backgroundSize: cover.backgroundSize,
+                    }}
+                    aria-label={`Use ${cover.name} cover`}
+                    title={cover.name}
+                  />
+                ))}
+              </div>
+            )}
           </div>
-          <div className="flex gap-2">
+          <div className="relative z-20 flex gap-2 md:pt-16 md:ml-auto">
             {!editing ? (
               <Button onClick={() => { setDraft(user); setEditing(true); }} className="gap-2">
                 <Pencil className="size-4" /> Edit profile
@@ -192,7 +271,20 @@ export default function Profile() {
                 )}
               </Field>
               <Field label="GPA (private)">
-                {editing ? <Input placeholder="3.8" /> : <Value>3.8</Value>}
+                {editing ? (
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={draft.gpa ?? ""}
+                    onChange={(e) => {
+                      const parsed = e.target.value === "" ? undefined : Number(e.target.value);
+                      setDraft({ ...draft, gpa: Number.isNaN(parsed) ? undefined : parsed });
+                    }}
+                    placeholder="3.8"
+                  />
+                ) : (
+                  <Value>{user.gpa ?? "—"}</Value>
+                )}
               </Field>
             </CardContent>
           </Card>
@@ -333,24 +425,12 @@ function VerificationPanel({ user }: { user: any }) {
       // 2. Upload ID card
       const idFormData = new FormData();
       idFormData.append("file", idCardFile);
-      const idUploadRes = await fetch("http://localhost:8000/api/uploads/id-card", {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${token}` },
-        body: idFormData
-      });
-      if (!idUploadRes.ok) throw new Error("ID Card upload failed");
-      const idUploadData = await idUploadRes.json();
+      const idUploadData = await apiUpload<any>("/uploads/id-card", idFormData, { token });
 
       // 3. Upload Resume
       const resumeFormData = new FormData();
       resumeFormData.append("file", resumeFile);
-      const resumeUploadRes = await fetch("http://localhost:8000/api/uploads/resume", {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${token}` },
-        body: resumeFormData
-      });
-      if (!resumeUploadRes.ok) throw new Error("Resume upload failed");
-      const resumeUploadData = await resumeUploadRes.json();
+      const resumeUploadData = await apiUpload<any>("/uploads/resume", resumeFormData, { token });
 
       // 4. Submit
       await apiRequest(`/verifications/${vid}/submit`, {

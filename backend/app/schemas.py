@@ -1,4 +1,4 @@
-"""Pydantic request/response schemas matching the TS types in mock.ts."""
+"""Pydantic request/response schemas (the API contract for the React frontend)."""
 from __future__ import annotations
 
 from datetime import datetime
@@ -19,7 +19,7 @@ Rarity = Literal["Common", "Rare", "Epic", "Legendary"]
 
 
 class ORMBase(BaseModel):
-    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True, serialize_by_alias=True)
 
 
 # ---------- Users ----------------------------------------------------------- #
@@ -46,6 +46,8 @@ class UserMe(UserPublic):
     institution_email: Optional[EmailStr] = Field(default=None, alias="institutionEmail")
     secondary_institutions: list[str] = Field(default_factory=list, alias="secondaryInstitutions")
     linkedin: Optional[str] = None
+    phone: Optional[str] = None
+    gpa: Optional[float] = None
     prefs: dict = {}
 
 
@@ -58,7 +60,9 @@ class UserUpdate(BaseModel):
     university: Optional[str] = None
     major: Optional[str] = None
     industry: Optional[str] = None
-    graduation_year: Optional[int] = Field(default=None, alias="graduationYear")
+    graduation_year: Optional[int] = Field(default=None, alias="graduationYear", ge=1950, le=2035)
+    gpa: Optional[float] = None
+    phone: Optional[str] = None
     avatar: Optional[str] = None
     location: Optional[str] = None
     bio: Optional[str] = None
@@ -85,7 +89,7 @@ class RegisterIn(BaseModel):
     institution_email: Optional[EmailStr] = Field(default=None, alias="institutionEmail")
     university: Optional[str] = None
     major: Optional[str] = None
-    graduation_year: Optional[int] = Field(default=None, alias="graduationYear")
+    graduation_year: Optional[int] = Field(default=None, alias="graduationYear", ge=1950, le=2035)
     secondary_institutions: list[str] = Field(default_factory=list, alias="secondaryInstitutions")
     linkedin: Optional[str] = None
 
@@ -93,6 +97,11 @@ class RegisterIn(BaseModel):
 class LoginIn(BaseModel):
     email: EmailStr
     password: str
+
+
+class PasswordChange(BaseModel):
+    current_password: str = Field(alias="currentPassword")
+    new_password: str = Field(min_length=8, alias="newPassword")
 
 
 class TokenOut(BaseModel):
@@ -112,6 +121,7 @@ class ConnectionRequestIn(BaseModel):
 class ConnectionRequestOut(ORMBase):
     id: str
     from_user: UserPublic = Field(alias="from")
+    to_id: str = Field(alias="toId")
     message: str
     created_at: datetime = Field(alias="at")
     status: str
@@ -225,6 +235,22 @@ class JobOut(ORMBase):
     posted_by: Optional[UserPublic] = Field(default=None, alias="postedBy")
     alumni_count: int = Field(alias="alumniCount")
     status: JobStatus
+    # Engagement is folded into list responses so the client no longer needs a
+    # per-card GET /jobs/{id}/engagement round-trip. Defaults keep single-job
+    # and recommendation payloads valid without extra queries.
+    likes_count: int = Field(default=0, alias="likesCount")
+    comments_count: int = Field(default=0, alias="commentsCount")
+    liked_by_me: bool = Field(default=False, alias="likedByMe")
+
+
+class PersonRecOut(UserPublic):
+    match_score: float = Field(alias="matchScore")
+    reasons: list[str] = []
+
+
+class JobRecOut(JobOut):
+    match_score: float = Field(alias="matchScore")
+    matched_skills: list[str] = Field(default_factory=list, alias="matchedSkills")
 
 
 class JobIn(BaseModel):
@@ -341,6 +367,10 @@ class ChatMessageOut(ORMBase):
 
 class ChatMessageIn(BaseModel):
     body: str
+
+
+class ChatDirectIn(BaseModel):
+    user_id: str = Field(alias="userId")
 
 
 class ChatThreadOut(ORMBase):

@@ -1,12 +1,10 @@
-<p align="center">
-  <img src="https://img.shields.io/badge/ALink-Alumni%20%C3%97%20Student%20Network-7C5CFF?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white" />
-  <img src="https://img.shields.io/badge/React-61DAFB?style=for-the-badge&logo=react&logoColor=black" />
-  <img src="https://img.shields.io/badge/SQLite-003B57?style=for-the-badge&logo=sqlite&logoColor=white" />
-  <img src="https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white" />
-</p>
-
 # 🔗 ALink — Alumni-to-Student Career Network
+
+![ALink Alumni Student Network](https://img.shields.io/badge/ALink-Alumni%20%C3%97%20Student%20Network-7C5CFF?style=for-the-badge)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)
+![React](https://img.shields.io/badge/React-61DAFB?style=for-the-badge&logo=react&logoColor=black)
+![SQLite](https://img.shields.io/badge/SQLite-003B57?style=for-the-badge&logo=sqlite&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
 
 > **ALink** is a full-stack networking platform that bridges the gap between alumni and students.  
 > Students discover alumni mentors, request warm referrals, book career-guidance sessions, engage with job posts, and grow through community-driven activity — all in one place.
@@ -16,6 +14,7 @@
 ## ✨ Key Features
 
 ### 🎓 For Students
+
 - **Alumni Discovery** — search and filter alumni by role, industry, university, and skills
 - **Connection Requests** — send warm-intro requests with personal messages
 - **Warm Referrals** — request referrals to top companies with resume uploads
@@ -26,18 +25,21 @@
 - **Achievements** — earn badges for networking activity (Common → Legendary)
 
 ### 🏢 For Alumni
+
 - **Job Posting** — share opportunities at your company with the student community
 - **Mentorship Programs** — create structured mentoring tracks with limited spots
 - **Referral Management** — review and forward referral requests
 - **Success Stories** — share your career journey to inspire students
 
 ### 🛡️ For Admins
+
 - **Dashboard Analytics** — real-time user, booking, referral, and verification stats
 - **Verification Queue** — approve or reject student identity verification requests
 - **Job Moderation** — approve, flag, or manage all job postings
 - **User Management** — view, filter, and manage all platform users
 
 ### 💬 Shared Features
+
 - **Real-time Chat** — DMs, group threads, and an AI assistant
 - **Events** — RSVP to panels, mixers, workshops, and career fairs
 - **Notifications** — stay informed about connections, bookings, and referrals
@@ -48,24 +50,29 @@
 
 ## 🏗️ Architecture
 
-```
+```text
 Frontend & backend/
 ├── run.py                  ← One-command setup + launch (backend + frontend)
 ├── README.md               ← This file
 │
-├── backend/                ← FastAPI REST API
+├── run_onVM.py             ← Native GCP-VM deployment (nginx + systemd + TLS)
+│
+├── backend/                ← FastAPI REST API + event-driven workers
 │   ├── app/
 │   │   ├── main.py         ← FastAPI app, CORS, lifespan, static mount
-│   │   ├── config.py       ← Pydantic-settings (env-driven)
-│   │   ├── database.py     ← SQLAlchemy engine, session, Base
+│   │   ├── config.py       ← Pydantic-settings (env-driven, prod-safe)
+│   │   ├── database.py     ← SQLAlchemy engine (SQLite WAL / PostgreSQL)
 │   │   ├── models.py       ← ORM models (User, Job, Chat, etc.)
 │   │   ├── schemas.py      ← Pydantic request/response contracts
 │   │   ├── security.py     ← bcrypt hashing + JWT encode/decode
 │   │   ├── deps.py         ← Auth dependency injection
 │   │   ├── seed.py         ← Demo data seeder
-│   │   └── routers/        ← 18 endpoint modules
+│   │   ├── routers/        ← REST endpoint modules (incl. recommendations)
+│   │   ├── events/         ← RabbitMQ event bus + contracts + handlers
+│   │   ├── workers/        ← notifications / ai / achievements microservices
+│   │   └── ml/             ← recommenders (TF-IDF) + AI intent classifier
 │   ├── uploads/            ← User-uploaded files (auto-created)
-│   ├── alink.db            ← SQLite database (auto-created)
+│   ├── alink.db            ← SQLite database (local; PostgreSQL in prod)
 │   ├── requirements.txt
 │   └── .env.example
 │
@@ -85,14 +92,17 @@ Frontend & backend/
 
 ## 🛠️ Tech Stack
 
-| Layer      | Technology                                              |
-| ---------- | ------------------------------------------------------- |
-| Frontend   | React 18, Vite 6, TypeScript, Tailwind CSS 4, Radix UI |
-| Backend    | FastAPI, SQLAlchemy 2, Pydantic v2, python-jose (JWT)   |
-| Database   | **SQLite** (zero-config, file-based)                    |
-| Auth       | bcrypt password hashing + HS256 JWT bearer tokens       |
-| Charts     | Recharts                                                |
-| Animations | Motion (Framer Motion)                                  |
+| Layer      | Technology                                                |
+| ---------- | --------------------------------------------------------- |
+| Frontend   | React 18, Vite 6, TypeScript, Tailwind CSS 4, Radix UI    |
+| Backend    | FastAPI, SQLAlchemy 2, Pydantic v2, python-jose (JWT)     |
+| Database   | **SQLite** (local) · **PostgreSQL** (production)         |
+| Messaging  | **RabbitMQ** (event-driven workers, in-process fallback)  |
+| ML         | **scikit-learn** (TF-IDF recommenders + intent model)     |
+| Auth       | bcrypt password hashing + HS256 JWT bearer tokens         |
+| Serving    | gunicorn + uvicorn workers, nginx, systemd, Let's Encrypt |
+| Charts     | Recharts                                                  |
+| Animations | Motion (Framer Motion)                                    |
 
 ---
 
@@ -117,25 +127,25 @@ python run.py --reset
 
 ## 📡 API Endpoints
 
-| Domain          | Endpoints                                                    |
-| --------------- | ------------------------------------------------------------ |
-| **Auth**        | `POST /auth/register`, `POST /auth/login`                    |
-| **Users**       | `GET/PATCH /users/me`, `GET /users`, `GET /users/:id`        |
-| **Connections** | `GET/POST /connections/requests`, accept/decline, remove      |
-| **Bookings**    | CRUD at `/bookings`                                          |
-| **Referrals**   | CRUD at `/referrals`                                         |
-| **Jobs**        | CRUD + like/unlike, comments/replies, engagement stats        |
-| **Events**      | `GET /events`, RSVP/cancel with capacity checks              |
-| **Mentorship**  | `GET /mentorship/programs`, apply                            |
-| **Chat**        | Threads, messages, AI auto-reply, pin/unpin, mark-read       |
-| **Stories**     | `GET /stories`                                               |
-| **Achievements**| `GET /achievements`                                          |
-| **Goals**       | CRUD at `/goals`                                             |
-| **Notifications**| list, mark-read, mark-all-read, clear                       |
-| **Settings**    | `GET/PUT/PATCH /settings/prefs`                              |
-| **Uploads**     | `POST /uploads/id-card`, `/uploads/resume`, `/uploads/avatar`|
-| **Verifications**| request, submit docs, view status (student) + approve/reject (admin) |
-| **Admin**       | stats, user management, job moderation                       |
+| Domain             | Endpoints                                                            |
+| ------------------ | -------------------------------------------------------------------- |
+| **Auth**           | `POST /auth/register`, `POST /auth/login`                            |
+| **Users**          | `GET/PATCH /users/me`, `GET /users`, `GET /users/:id`                |
+| **Connections**    | `GET/POST /connections/requests`, accept/decline, remove             |
+| **Bookings**       | CRUD at `/bookings`                                                  |
+| **Referrals**      | CRUD at `/referrals`                                                 |
+| **Jobs**           | CRUD + like/unlike, comments/replies, engagement stats               |
+| **Events**         | `GET /events`, RSVP/cancel with capacity checks                      |
+| **Mentorship**     | `GET /mentorship/programs`, apply                                    |
+| **Chat**           | Threads, messages, AI auto-reply, pin/unpin, mark-read               |
+| **Stories**        | `GET /stories`                                                       |
+| **Achievements**   | `GET /achievements`                                                  |
+| **Goals**          | CRUD at `/goals`                                                     |
+| **Notifications**  | list, mark-read, mark-all-read, clear                                |
+| **Settings**       | `GET/PUT/PATCH /settings/prefs`                                      |
+| **Uploads**        | `POST /uploads/id-card`, `/uploads/resume`, `/uploads/avatar`        |
+| **Verifications**  | request, submit docs, view status (student) + approve/reject (admin) |
+| **Admin**          | stats, user management, job moderation                               |
 
 Full Swagger docs available at `http://127.0.0.1:8000/docs` after starting the backend.
 
@@ -178,12 +188,15 @@ That's it! The script will automatically:
 
 ### Demo Accounts
 
-| Email                | Password   | Role    |
-| -------------------- | ---------- | ------- |
-| `alex@stanford.edu`  | `password` | Student |
-| `admin@alink.app`    | `password` | Admin   |
-| `maya@stanford.edu`  | `password` | Alumni  |
-| `jordan@mit.edu`     | `password` | Alumni  |
+| Email                | Password      | Role    |
+| -------------------- | ------------- | ------- |
+| `student@alink.app`  | `password123` | Student |
+| `alumni@alink.app`   | `password123` | Alumni  |
+| `admin@alink.app`    | `password123` | Admin   |
+| `alex@stanford.edu`  | `password`    | Student |
+| `maya@stanford.edu`  | `password`    | Alumni  |
+
+> The three `@alink.app` accounts back the landing page's one-click "Try the demo" buttons.
 
 ### Custom Ports
 
@@ -200,6 +213,58 @@ python run.py --reset
 ### Stop
 
 Press **`Ctrl + C`** to gracefully shut down both services.
+
+---
+
+## 🐇 Event-Driven Architecture (RabbitMQ)
+
+User actions publish **domain events** to a durable `alink.events` topic exchange.
+Independent **worker microservices** consume them — so notifications, achievements,
+and AI replies happen off the request path:
+
+```text
+ routers ──publish──▶  RabbitMQ (alink.events)  ──▶  notifications_worker  →  Notification + Activity
+ (connection.requested,                          ├─▶  achievements_worker   →  awards badges
+  booking.created, referral.*,                   └─▶  ai_worker             →  async ALink-AI reply
+  job.approved, chat.message.created, …)
+```
+
+- **Producers:** `app/events/publish(...)` (non-blocking, called after commit).
+- **Consumers:** `python -m app.workers.{notifications_worker,ai_worker,achievements_worker}`.
+- **Graceful fallback:** if `rabbitmq_url` is unset/unreachable (local dev), events are
+  handled **in-process** so notifications/activity/achievements/AI still work without a broker.
+
+## 🤖 Machine Learning
+
+1. **People recommender**  
+   Content-based **TF-IDF + cosine similarity** over profile documents, blended with
+   mutual-connection, university, industry, and mentor boosts. Used by
+   `GET /recommendations/people`, Finder "Top matches", and Dashboards "For you".
+
+2. **Job recommender**  
+   TF-IDF/cosine of student profile vs job document, plus popularity and recency
+   signals. Used by `GET /jobs/recommended` and Dashboard "Jobs for you".
+
+3. **AI intent classifier**  
+   TF-IDF over **word + character** n-grams with nearest-example cosine and a
+   confidence threshold. Powers the chat assistant in `ai_worker`.
+
+All three degrade gracefully (heuristic fallback) if scikit-learn is absent.
+
+## 🚀 Deploy to a VM (native, no Docker)
+
+`run_onVM.py` provisions the entire stack on a Debian/Ubuntu GCP VM — system
+packages, PostgreSQL, RabbitMQ, the backend venv, the production frontend build,
+nginx (SPA + `/api` proxy), systemd services (API + 3 workers), and HTTPS via
+certbot:
+
+```bash
+# DNS A record for the domain must already point at the VM's external IP
+sudo python3 run_onVM.py --domain aLink.ahbab.dev --email you@example.com
+```
+
+Useful flags: `--no-tls`, `--skip-system`, `--reset-db`, `--db sqlite`.
+After it finishes, the app is live at `https://aLink.ahbab.dev` (API docs at `/api/docs`).
 
 ---
 

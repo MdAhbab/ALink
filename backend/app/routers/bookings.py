@@ -1,12 +1,14 @@
 import uuid
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from ..database import get_db
 from ..deps import get_current_user
+from ..events import publish, EventType
 from ..models import Booking, User
 from ..schemas import BookingIn, BookingOut, BookingPatch
 
@@ -17,11 +19,31 @@ router = APIRouter(prefix="/bookings", tags=["bookings"])
 ACTIVE_BOOKING_STATUSES = ("pending", "upcoming")
 
 
-def normalize_starts_at(date_value: str, time_value: str, starts_at: datetime | None) -> datetime:
+def normalize_starts_at(
+    date_value: str,
+    time_value: str,
+    starts_at: datetime | None,
+    tz_name: str | None = None,
+) -> datetime:
+    """Resolve a booking start to an aware UTC datetime.
+
+    Accepts either an explicit ``startsAt`` or a ``date``+``time`` pair. When no
+    timezone is available, the wall-clock time is interpreted in ``tz_name``
+    (the client's IANA zone) and falls back to UTC — never a hard 400.
+    """
     if starts_at is None:
-        starts_at = datetime.fromisoformat(f"{date_value}T{time_value}")
+        try:
+            starts_at = datetime.fromisoformat(f"{date_value}T{time_value}")
+        except ValueError:
+            raise HTTPException(400, "Invalid booking date or time")
     if starts_at.tzinfo is None or starts_at.tzinfo.utcoffset(starts_at) is None:
-        raise HTTPException(400, "Booking time must include a timezone-aware startsAt value")
+        tz: timezone | ZoneInfo = timezone.utc
+        if tz_name:
+            try:
+                tz = ZoneInfo(tz_name)
+            except Exception:
+                tz = timezone.utc
+        starts_at = starts_at.replace(tzinfo=tz)
     return starts_at.astimezone(timezone.utc).replace(microsecond=0)
 
 
@@ -69,7 +91,11 @@ def list_bookings(
     db: Session = Depends(get_db),
     current: User = Depends(get_current_user),
 ) -> list[Booking]:
-    qry = db.query(Booking).filter(or_(Booking.owner_id == current.id, Booking.with_id == current.id))
+    qry = (
+        db.query(Booking)
+        .options(selectinload(Booking.with_user))
+        .filter(or_(Booking.owner_id == current.id, Booking.with_id == current.id))
+    )
     if status:
         qry = qry.filter(Booking.status == status)
     return qry.order_by(Booking.date.asc(), Booking.time.asc()).offset(offset).limit(limit).all()
@@ -83,9 +109,10 @@ def create_booking(
 ) -> Booking:
     if body.with_id == current.id:
         raise HTTPException(400, "Cannot book a session with yourself")
-    if not db.get(User, body.with_id):
+    counterpart = db.get(User, body.with_id)
+    if not counterpart:
         raise HTTPException(404, "Counterpart not found")
-    starts_at_utc = normalize_starts_at(body.date, body.time, body.starts_at)
+    starts_at_utc = normalize_starts_at(body.date, body.time, body.starts_at, body.timezone)
     ensure_no_overlap(db, body.with_id, starts_at_utc, body.duration)
     utc_date, utc_time = utc_date_time(starts_at_utc)
     b = Booking(
@@ -104,6 +131,15 @@ def create_booking(
     db.add(b)
     db.commit()
     db.refresh(b)
+    publish(EventType.BOOKING_CREATED, {
+        "owner_id": b.owner_id,
+        "owner_name": current.name,
+        "with_id": b.with_id,
+        "with_name": counterpart.name,
+        "topic": b.topic,
+        "date": b.date,
+        "time": b.time,
+    })
     return b
 
 
@@ -123,7 +159,7 @@ def update_booking(
     duration = data.get("duration", b.duration)
     starts_at_value = data.get("starts_at")
     if "starts_at" in data or "date" in data or "time" in data or "duration" in data:
-        starts_at_utc = normalize_starts_at(date_value, time_value, starts_at_value)
+        starts_at_utc = normalize_starts_at(date_value, time_value, starts_at_value, data.get("timezone", b.timezone))
         ensure_no_overlap(db, b.with_id, starts_at_utc, duration, exclude_id=b.id)
         utc_date, utc_time = utc_date_time(starts_at_utc)
         data["date"] = utc_date
@@ -148,3 +184,11 @@ def cancel_booking(
         raise HTTPException(404, "Booking not found")
     b.status = "cancelled"
     db.commit()
+    notify_id = b.with_id if current.id == b.owner_id else b.owner_id
+    publish(EventType.BOOKING_CANCELLED, {
+        "owner_id": b.owner_id,
+        "with_id": b.with_id,
+        "topic": b.topic,
+        "notify_id": notify_id,
+        "cancelled_by": current.id,
+    })

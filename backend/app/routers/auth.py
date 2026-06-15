@@ -5,7 +5,9 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from ..database import get_db
+from ..events import publish, EventType
 from ..models import User
+from ..ratelimit import rate_limit_auth
 from ..schemas import LoginIn, RegisterIn, TokenOut, UserMe
 from ..security import create_access_token, hash_password, verify_password
 
@@ -14,12 +16,12 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 def _token_for(user: User) -> TokenOut:
-    token = create_access_token(user.id, extra={"role": user.role})
+    token = create_access_token(user.id, extra={"role": user.role, "ver": user.token_version or 0})
     return TokenOut(access_token=token, user=UserMe.model_validate(user))
 
 
 @router.post("/register", response_model=TokenOut, status_code=201)
-def register(body: RegisterIn, db: Session = Depends(get_db)) -> TokenOut:
+def register(body: RegisterIn, db: Session = Depends(get_db), _: None = Depends(rate_limit_auth)) -> TokenOut:
     if body.role == "admin":
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Admin accounts cannot self-register")
     if db.query(User).filter(User.email == body.email).first():
@@ -41,11 +43,12 @@ def register(body: RegisterIn, db: Session = Depends(get_db)) -> TokenOut:
     db.add(user)
     db.commit()
     db.refresh(user)
+    publish(EventType.USER_REGISTERED, {"user_id": user.id, "name": user.name})
     return _token_for(user)
 
 
 @router.post("/login", response_model=TokenOut)
-def login(body: LoginIn, db: Session = Depends(get_db)) -> TokenOut:
+def login(body: LoginIn, db: Session = Depends(get_db), _: None = Depends(rate_limit_auth)) -> TokenOut:
     user = db.query(User).filter(User.email == body.email).first()
     if not user or not verify_password(body.password, user.password_hash):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid credentials")

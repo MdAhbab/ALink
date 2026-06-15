@@ -57,8 +57,8 @@ export default function Landing() {
           </nav>
           <div className="flex items-center gap-2">
             <ThemeToggle />
-            <Link to="/login"><Button variant="ghost">Log in</Button></Link>
-            <Link to="/register"><Button>Join ALink</Button></Link>
+            <Button asChild variant="ghost"><Link to="/login">Log in</Link></Button>
+            <Button asChild><Link to="/register">Join ALink</Link></Button>
           </div>
         </div>
       </header>
@@ -88,8 +88,8 @@ export default function Landing() {
               ALink connects students with verified alumni through mentorship, bookable consultations, and warm referrals — designed like the network you wish your campus had.
             </motion.p>
             <motion.div {...fade(0.15)} className="mt-7 flex flex-wrap items-center gap-3">
-              <Link to="/register"><Button size="lg" className="gap-2 group">Get started <ArrowRight className="size-4 group-hover:translate-x-0.5 transition" /></Button></Link>
-              <Link to="/login"><Button size="lg" variant="outline">I have an account</Button></Link>
+              <Button asChild size="lg" className="gap-2 group"><Link to="/register">Get started <ArrowRight className="size-4 group-hover:translate-x-0.5 transition" /></Link></Button>
+              <Button asChild size="lg" variant="outline"><Link to="/login">I have an account</Link></Button>
             </motion.div>
 
             <motion.div {...fade(0.2)} className="mt-8 flex items-center gap-3 text-sm text-muted-foreground">
@@ -225,8 +225,8 @@ export default function Landing() {
             <h2 className="font-serif text-4xl md:text-5xl mt-3">Give your alumni network a home worth visiting.</h2>
             <p className="mt-4 text-white/75 max-w-xl">ALink for Schools includes SSO, custom branding, verification workflows, jobs board moderation, and analytics dashboards.</p>
             <div className="mt-7 flex gap-3">
-              <Link to="/register"><Button size="lg" className="bg-white text-[#0B0D1F] hover:bg-white/90">Talk to us</Button></Link>
-              <Link to="/login"><Button size="lg" variant="ghost" className="text-white hover:bg-white/10">Sign in</Button></Link>
+              <Button asChild size="lg" className="bg-white text-[#0B0D1F] hover:bg-white/90"><Link to="/register">Talk to us</Link></Button>
+              <Button asChild size="lg" variant="ghost" className="text-white hover:bg-white/10"><Link to="/login">Sign in</Link></Button>
             </div>
           </motion.div>
           <motion.div {...fade(0.1)} className="lg:col-span-5 grid grid-cols-2 gap-3">
@@ -251,8 +251,8 @@ export default function Landing() {
         <motion.h2 {...fade()} className="font-serif text-4xl md:text-6xl">Make your next intro count.</motion.h2>
         <motion.p {...fade(0.05)} className="text-muted-foreground mt-3 max-w-xl mx-auto">Join thousands of students and alumni already meeting on ALink.</motion.p>
         <motion.div {...fade(0.1)} className="mt-7 inline-flex gap-3">
-          <Link to="/register"><Button size="lg" className="gap-2">Create account <Heart className="size-4" /></Button></Link>
-          <Link to="/login"><Button size="lg" variant="outline">Log in</Button></Link>
+          <Button asChild size="lg" className="gap-2"><Link to="/register">Create account <Heart className="size-4" /></Link></Button>
+          <Button asChild size="lg" variant="outline"><Link to="/login">Log in</Link></Button>
         </motion.div>
       </section>
 
@@ -263,14 +263,29 @@ export default function Landing() {
             <p className="text-muted-foreground mt-3 max-w-xs">A network worth belonging to. Built for the people who make a campus.</p>
           </div>
           {[
-            { h: "Product", l: ["Discover", "Bookings", "Referrals", "Events"] },
-            { h: "Company", l: ["About", "Careers", "Press", "Contact"] },
-            { h: "Legal",   l: ["Privacy", "Terms", "Trust", "Cookies"] },
+            { h: "Product", l: [
+              { label: "Discover", to: "/app/finder" },
+              { label: "Bookings", to: "/app/bookings" },
+              { label: "Referrals", to: "/app/referrals" },
+              { label: "Events", to: "/app/events" },
+            ] },
+            { h: "Company", l: [
+              { label: "About", to: "/register" },
+              { label: "Careers", to: "/register" },
+              { label: "Press", to: "/register" },
+              { label: "Contact", to: "/register" },
+            ] },
+            { h: "Legal", l: [
+              { label: "Privacy", to: "/register" },
+              { label: "Terms", to: "/register" },
+              { label: "Trust", to: "/register" },
+              { label: "Cookies", to: "/register" },
+            ] },
           ].map(c => (
             <div key={c.h}>
               <div className="text-muted-foreground">{c.h}</div>
               <ul className="mt-2 space-y-1.5">
-                {c.l.map(x => <li key={x}><a className="hover:text-foreground" href="#">{x}</a></li>)}
+                {c.l.map(x => <li key={x.label}><Link className="hover:text-foreground" to={x.to}>{x.label}</Link></li>)}
               </ul>
             </div>
           ))}
@@ -390,7 +405,7 @@ function RolesSection() {
                 </li>
               ))}
             </ul>
-            <div className="mt-6"><Link to="/register"><Button>Get started as {tab}</Button></Link></div>
+            <div className="mt-6"><Button asChild><Link to={`/register?role=${tab}`}>Get started as {tab}</Link></Button></div>
           </div>
           <RoleVisual role={tab} />
         </motion.div>
@@ -416,7 +431,7 @@ function RoleVisual({ role }: { role: "student"|"alumni"|"admin" }) {
               <div className="text-sm truncate">{m.n}</div>
               <div className="text-xs text-muted-foreground truncate">{m.t}</div>
             </div>
-            <Button size="sm" className="h-7 px-2">Connect</Button>
+            <span className="inline-flex h-7 items-center rounded-md bg-primary px-2 text-xs font-medium text-primary-foreground">Connect</span>
           </motion.div>
         ))}
       </div>
@@ -445,7 +460,7 @@ function RoleVisual({ role }: { role: "student"|"alumni"|"admin" }) {
           className="mt-2 flex items-center gap-3 rounded-xl p-2 border border-border">
           <img className="size-8 rounded-full" src={`https://api.dicebear.com/9.x/notionists/svg?seed=${n}`} />
           <div className="flex-1 min-w-0"><div className="text-sm truncate">{n}</div><div className="text-xs text-muted-foreground">Pending review</div></div>
-          <Button size="sm" variant="outline" className="h-7 px-2">Approve</Button>
+          <span className="inline-flex h-7 items-center rounded-md border border-border px-2 text-xs font-medium">Approve</span>
         </motion.div>
       ))}
     </div>

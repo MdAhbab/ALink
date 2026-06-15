@@ -2,7 +2,7 @@ import { motion } from "motion/react";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
-import { CheckCircle2, MessageCircle, UserPlus, Calendar, Briefcase } from "lucide-react";
+import { CheckCircle2, Clock, MessageCircle, UserPlus, Calendar, Briefcase } from "lucide-react";
 
 export type Person = any;
 
@@ -44,6 +44,8 @@ export function PersonCard({ p, onConnect, onMessage, onBook, onRefer }: {
       <div className="mt-4 flex flex-wrap gap-2">
         {p.connected ? (
           <Button size="sm" variant="outline" className="gap-1.5" onClick={() => onMessage?.(p)}><MessageCircle className="size-3.5" /> Message</Button>
+        ) : p.pending ? (
+          <Button size="sm" variant="outline" className="gap-1.5 opacity-60" disabled><Clock className="size-3.5" /> Pending</Button>
         ) : (
           <Button size="sm" className="gap-1.5" onClick={() => onConnect?.(p)}><UserPlus className="size-3.5" /> Connect</Button>
         )}

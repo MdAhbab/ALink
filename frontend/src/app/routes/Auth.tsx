@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Link, useNavigate } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { motion } from "motion/react";
 import { Logo } from "../components/brand/Logo";
 import { Button } from "../components/ui/button";
@@ -111,6 +111,7 @@ export function LoginPage() {
   const nav = useNavigate();
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
+  const [loginError, setLoginError] = React.useState<string | null>(null);
   const [pendingDest, setPendingDest] = React.useState<string | null>(null);
 
   React.useEffect(() => {
@@ -121,14 +122,17 @@ export function LoginPage() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoginError(null);
     if (!EMAIL_RE.test(email)) { toast.error("Please enter a valid email"); return; }
     if (password.length < 8) { toast.error("Password must be at least 8 characters"); return; }
     try {
       await login(email, password);
       setSubmitted(true);
     } catch (error) {
+      const message = error instanceof Error ? error.message : "Please check your credentials and try again.";
+      setLoginError(message);
       toast.error("Unable to sign in", {
-        description: error instanceof Error ? error.message : "Please check your credentials and try again.",
+        description: message,
       });
     }
   };
@@ -162,7 +166,9 @@ export function LoginPage() {
           Continue <ArrowRight className="size-4" />
         </Button>
 
-
+        {loginError && (
+          <p className="text-sm text-[var(--rose)] text-center mt-3">{loginError}</p>
+        )}
 
         <p className="text-sm text-muted-foreground text-center mt-4">
           New here?{" "}
@@ -179,7 +185,11 @@ export function LoginPage() {
 export function RegisterPage() {
   const { user, register, isBusy } = useAuth();
   const nav = useNavigate();
-  const [role, setRole] = React.useState<RegisterRole>("student");
+  const [searchParams] = useSearchParams();
+  const [role, setRole] = React.useState<RegisterRole>(() => {
+    const requested = searchParams.get("role");
+    return requested === "alumni" ? "alumni" : "student";
+  });
   const [email, setEmail] = React.useState("");
   const [instEmail, setInstEmail] = React.useState("");
   const [secondary, setSecondary] = React.useState<string[]>([]);

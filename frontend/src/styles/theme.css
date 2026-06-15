@@ -212,6 +212,14 @@
     *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
   }
 
+  /* In-app "Reduce motion" preference (Settings -> Appearance). Mirrors the OS
+     media query above; Framer Motion animations are handled via MotionConfig. */
+  .reduce-motion *, .reduce-motion *::before, .reduce-motion *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+
   /**
   * Default typography styles for HTML elements (h1-h4, p, label, button, input).
   * These are in @layer base, so Tailwind utility classes (like text-sm, text-lg) automatically override them.

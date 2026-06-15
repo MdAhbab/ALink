@@ -26,6 +26,9 @@ def get_current_user(
     user = db.get(User, user_id)
     if not user:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "User not found")
+    # Reject tokens issued before the user's last password change.
+    if int(payload.get("ver", 0)) != int(user.token_version or 0):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Token has been revoked")
     return user
 
 

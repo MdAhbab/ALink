@@ -1,16 +1,17 @@
 import * as React from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useAuth } from "../lib/auth";
-import { apiRequestAll, getAuthToken } from "../lib/api";
+import { apiRequest, apiRequestAll, getAuthToken } from "../lib/api";
 import { useDebouncedValue } from "../lib/useDebouncedValue";
 import { PersonCard } from "../components/people/PersonCard";
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
-import { Search, SlidersHorizontal, X } from "lucide-react";
+import { Search, SlidersHorizontal, X, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import type { Role } from "./Auth";
 import { useNavigate } from "react-router";
+import { openDirectThread } from "../lib/chat";
 
 export default function Finder() {
   const nav = useNavigate();
@@ -21,6 +22,7 @@ export default function Finder() {
   const [industry, setIndustry] = React.useState<string | null>(null);
   const [university, setUniversity] = React.useState<string | null>(null);
   const [people, setPeople] = React.useState<any[]>([]);
+  const [topMatches, setTopMatches] = React.useState<any[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
 
   React.useEffect(() => {
@@ -29,15 +31,19 @@ export default function Finder() {
     const controller = new AbortController();
     setIsLoading(true);
     apiRequestAll<any>("/users", { token, signal: controller.signal })
-      .then(setPeople)
+      .then((rows) => setPeople(rows.filter((p) => p.id !== user?.id)))
       .catch((err: any) => {
         if (err?.name !== "AbortError") {
           toast.error("Failed to fetch users", { description: err.message });
         }
       })
       .finally(() => setIsLoading(false));
+    // Fetch recommendations separately; failures are silently ignored
+    apiRequest<any[]>("/recommendations/people?limit=8", { token, signal: controller.signal })
+      .then((rows) => setTopMatches(rows.filter((p) => p.id !== user?.id)))
+      .catch(() => {});
     return () => controller.abort();
-  }, []);
+  }, [user?.id]);
 
   const industries = Array.from(new Set(people.map(p => p.industry).filter(Boolean) as string[]));
   const universities = Array.from(new Set(people.map(p => p.university).filter(Boolean) as string[]));
@@ -48,6 +54,30 @@ export default function Finder() {
     (!university || p.university === university) &&
     [p.name, p.title, p.company, p.major].filter(Boolean).join(" ").toLowerCase().includes(debouncedQ.toLowerCase())
   );
+
+  const smartHints = React.useMemo(() => {
+    const query = debouncedQ.trim().toLowerCase();
+    const hints = [] as string[];
+    if (!query) {
+      hints.push("Start with a major, industry, or company to surface the best alumni matches.");
+    } else {
+      if (query.includes("ai") || query.includes("ml")) hints.push("AI and data roles are often the strongest signal for this query.");
+      if (query.includes("mentor") || query.includes("mentorship")) hints.push("Mentor-ready profiles usually show open-to-mentor or leadership experience.");
+      if (query.includes("job") || query.includes("intern")) hints.push("Job and internship keywords help surface people with recent hiring context.");
+      hints.push(`We matched ${filtered.length} result${filtered.length === 1 ? "" : "s"} using your current search intent.`);
+    }
+    return hints.slice(0, 3);
+  }, [debouncedQ, filtered.length]);
+
+  const messagePerson = async (p: any) => {
+    try {
+      const thread = await openDirectThread(p.id);
+      toast.success(`Conversation opened with ${p.name}`);
+      nav(`/app/inbox?thread=${encodeURIComponent(thread.id)}`);
+    } catch (err: any) {
+      toast.error("Failed to open message", { description: err.message });
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -95,6 +125,41 @@ export default function Finder() {
         </div>
       </div>
 
+      <div className="rounded-2xl border border-border bg-card p-4">
+        <div className="flex items-start gap-3">
+          <div className="rounded-xl bg-[color:var(--brand-50)] dark:bg-[color:var(--brand-900)]/30 p-2 text-[var(--brand-600)] dark:text-[var(--brand-300)]"><Sparkles className="size-4" /></div>
+          <div>
+            <div className="text-sm font-medium">Smart Search AI</div>
+            <p className="text-xs text-muted-foreground">AI-style hints are generated from your current filters and query to help you narrow the right people faster.</p>
+            <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
+              {smartHints.map((hint) => <li key={hint} className="flex items-start gap-2"><span className="mt-1 size-1.5 rounded-full bg-[var(--brand-500)]" />{hint}</li>)}
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      {topMatches.length > 0 && (
+        <div className="rounded-2xl border border-border bg-card p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-sm font-medium">Top matches for you</span>
+            <Badge variant="secondary" className="rounded-full text-[10px]">{topMatches.length}</Badge>
+          </div>
+          <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-thin">
+            {topMatches.map(p => (
+              <div key={p.id} className="shrink-0 w-32 rounded-xl border border-border bg-background p-3 text-center hover:bg-muted/50 transition cursor-pointer"
+                onClick={() => nav(`/app/finder`)}>
+                <div className="size-10 rounded-full bg-muted mx-auto overflow-hidden">
+                  {p.avatar ? <img src={p.avatar} alt={p.name} className="w-full h-full object-cover" /> : <div className="w-full h-full grid place-items-center text-sm">{p.name?.[0]}</div>}
+                </div>
+                <div className="text-xs mt-2 truncate">{p.name}</div>
+                <div className="text-[10px] text-muted-foreground truncate">{p.title}</div>
+                <Badge variant="secondary" className="mt-1.5 text-[9px] h-4 px-1.5 rounded-full">{Math.round(p.matchScore * 100)}% match</Badge>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div className="text-sm text-muted-foreground">
           {isLoading ? "Loading..." : `${filtered.length} ${filtered.length === 1 ? "result" : "results"}`}
@@ -116,14 +181,14 @@ export default function Finder() {
                   await apiRequest("/connections/requests", {
                     method: "POST",
                     token: getAuthToken() || undefined,
-                    body: { to_id: p.id, message: "Hi! I'd like to connect." },
+                    body: { toId: p.id, message: "" },
                   });
                   toast.success(`Request sent to ${p.name}`);
                 } catch (err: any) {
                   toast.error("Failed to connect", { description: err.message });
                 }
               }}
-              onMessage={() => nav("/app/inbox")}
+              onMessage={messagePerson}
               onBook={(p) => nav(`/app/bookings?new=1&withId=${encodeURIComponent(p.id)}`)}
               onRefer={(p) => nav(`/app/referrals?new=1&referrerId=${encodeURIComponent(p.id)}`)}
             />

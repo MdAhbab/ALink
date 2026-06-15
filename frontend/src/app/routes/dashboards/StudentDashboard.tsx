@@ -8,14 +8,31 @@ import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent } from "../../components/ui/card";
 import { Progress } from "../../components/ui/progress";
-import { Calendar, Compass, Briefcase, BookOpen, Sparkles, Target, Trophy, ChevronRight, Flame, Users, Award, Trash2, Plus } from "lucide-react";
+import { Calendar, Compass, Briefcase, BookOpen, Sparkles, Target, Trophy, ChevronRight, Flame, Users, Award, Trash2, Plus, Link2, Pin, ShieldAlert } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "../../components/ui/dialog";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { toast } from "sonner";
+import { timeAgo } from "../../lib/time";
 
 const stagger = { hidden: {}, visible: { transition: { staggerChildren: 0.05 } } };
 const item = { hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0, transition: { duration: 0.3 } } };
+
+const starterLinks = [
+  { id: "link-1", label: "Career fair schedule", url: "https://example.com/career-fair", pinned: true },
+  { id: "link-2", label: "Mentor office hours", url: "https://example.com/office-hours", pinned: false },
+  { id: "link-3", label: "Resume review hub", url: "https://example.com/resume-review", pinned: true },
+];
+
+function normalizeLink(raw: string) {
+  const value = raw.trim();
+  if (!value) return "";
+  try {
+    return new URL(value.startsWith("http") ? value : `https://${value}`).toString();
+  } catch {
+    return value;
+  }
+}
 
 export default function StudentDashboard() {
   const { user } = useAuth();
@@ -23,12 +40,18 @@ export default function StudentDashboard() {
   const [events, setEvents] = React.useState<any[]>([]);
   const [jobs, setJobs] = React.useState<any[]>([]);
   const [people, setPeople] = React.useState<any[]>([]);
+  const [recommendedPeople, setRecommendedPeople] = React.useState<any[]>([]);
+  const [recommendedJobs, setRecommendedJobs] = React.useState<any[]>([]);
   const [activity, setActivity] = React.useState<any[]>([]);
   const [achievements, setAchievements] = React.useState<any[]>([]);
   const [studentGoals, setStudentGoals] = React.useState<any[]>([]);
   const [referrals, setReferrals] = React.useState<any[]>([]);
   const [connections, setConnections] = React.useState<any[]>([]);
+  const [requests, setRequests] = React.useState<any[]>([]);
   const [mentorPrograms, setMentorPrograms] = React.useState<any[]>([]);
+  const [importantLinks, setImportantLinks] = React.useState(starterLinks);
+  const [linkLabel, setLinkLabel] = React.useState("");
+  const [linkUrl, setLinkUrl] = React.useState("");
   const [isLoading, setIsLoading] = React.useState(true);
   const [goalsOpen, setGoalsOpen] = React.useState(false);
   const [prepOpen, setPrepOpen] = React.useState(false);
@@ -50,13 +73,34 @@ export default function StudentDashboard() {
       apiRequest<any[]>("/goals", { token, signal: controller.signal }).then(setStudentGoals).catch(() => {}),
       apiRequestAll<any>("/referrals", { token, signal: controller.signal }).then(setReferrals).catch(() => {}),
       apiRequest<any[]>("/connections", { token, signal: controller.signal }).then(setConnections).catch(() => {}),
+      apiRequest<any[]>("/connections/requests", { token, signal: controller.signal }).then(setRequests).catch(() => {}),
       apiRequest<any[]>("/mentorship/programs", { token, signal: controller.signal }).then(setMentorPrograms).catch(() => {}),
+      apiRequest<any[]>("/recommendations/people?limit=12", { token, signal: controller.signal })
+        .then(setRecommendedPeople).catch(() => {}),
+      apiRequest<any[]>("/jobs/recommended?limit=12", { token, signal: controller.signal })
+        .then(setRecommendedJobs).catch(() => {}),
     ]).finally(() => setIsLoading(false));
     return () => controller.abort();
   }, []);
 
   const upcoming = bookings.find(b => b.status === "upcoming");
   const earnedBadges = achievements.filter(a => a.earnedAt).length;
+  const pinnedLinks = importantLinks.filter(l => l.pinned);
+  const duplicateLinks = React.useMemo(() => {
+    const seen = new Set<string>();
+    return importantLinks.filter(item => {
+      const key = normalizeLink(item.url).toLowerCase();
+      if (!key || seen.has(key)) return true;
+      seen.add(key);
+      return false;
+    });
+  }, [importantLinks]);
+  const smartSummary = [
+    `${connections.length} active connections`,
+    `${bookings.length} session actions tracked`,
+    `${referrals.length} referral opportunities`,
+    `${Math.max(1, recommendedPeople.length)} AI-matched alumni suggestions`,
+  ];
   const calculatedLevel = Math.max(1, Math.floor(earnedBadges / 2) + 1);
   const levelTitle = calculatedLevel <= 1 ? "Novice" : calculatedLevel === 2 ? "Explorer" : calculatedLevel === 3 ? "Networker" : calculatedLevel === 4 ? "Connector" : "Master Mentor";
   const heroRef = React.useRef<HTMLDivElement | null>(null);
@@ -77,28 +121,122 @@ export default function StudentDashboard() {
     );
   }
 
+  const sendConnectionRequest = async (person: any) => {
+    try {
+      await apiRequest("/connections/requests", {
+        method: "POST",
+        token: getAuthToken() || undefined,
+        body: { to_id: person.id, message: "Hi! I'd like to connect." },
+      });
+      toast.success(`Request sent to ${person.name}`);
+    } catch (err: any) {
+      toast.error("Failed to connect", { description: err.message });
+    }
+  };
+
   return (
     <motion.div variants={stagger} initial="hidden" animate="visible" className="space-y-6">
       {/* Hero */}
       <motion.div ref={heroRef} variants={item} className="relative overflow-hidden rounded-3xl border border-border bg-card p-6 md:p-8">
-        <motion.div aria-hidden style={{ y: tintY }} className="absolute inset-0 -z-10 opacity-[0.10] brand-gradient" />
-        <motion.div aria-hidden style={{ y: blobY, x: blobX }} className="absolute -right-16 -bottom-16 size-72 rounded-full brand-gradient opacity-20 blur-3xl" />
-        <motion.div aria-hidden style={{ y: blob2Y }} className="absolute -left-20 -top-20 size-60 rounded-full bg-[var(--amber)]/15 blur-3xl" />
-        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-5">
+        <motion.div aria-hidden style={{ y: tintY }} className="pointer-events-none absolute inset-0 -z-10 opacity-[0.10] brand-gradient" />
+        <motion.div aria-hidden style={{ y: blobY, x: blobX }} className="pointer-events-none absolute -right-16 -bottom-16 size-72 rounded-full brand-gradient opacity-20 blur-3xl" />
+        <motion.div aria-hidden style={{ y: blob2Y }} className="pointer-events-none absolute -left-20 -top-20 size-60 rounded-full bg-[var(--amber)]/15 blur-3xl" />
+        <div className="relative z-10 flex flex-col md:flex-row md:items-end md:justify-between gap-5">
           <div>
-            <Badge variant="secondary" className="rounded-full"><Flame className="size-3" /> 7-day streak</Badge>
+            <Badge variant="secondary" className="rounded-full"><Flame className="size-3" /> {connections.length} connection{connections.length === 1 ? "" : "s"}</Badge>
             <h1 className="font-serif text-4xl md:text-5xl mt-3">
-              Hi {user!.name.split(" ")[0]}, <span className="brand-gradient-text italic">3 alumni want to meet you.</span>
+              Hi {user!.name.split(" ")[0]},{" "}
+              <span className="brand-gradient-text italic">
+                {requests.length > 0
+                  ? `${requests.length} ${requests.length === 1 ? "person wants" : "people want"} to connect.`
+                  : "let's grow your network."}
+              </span>
             </h1>
             <p className="text-muted-foreground mt-2 max-w-xl">
-              Welcome back. Connect with peers, browse events, or request mentorship.
+              {requests.length > 0
+                ? "Review your pending requests, or discover new alumni to learn from."
+                : "Welcome back. Connect with peers, browse events, or request mentorship."}
             </p>
           </div>
           <div className="flex gap-2 flex-wrap">
-            <Link to="/app/finder"><Button className="gap-2"><Compass className="size-4" /> Find alumni</Button></Link>
-            <Link to="/app/events"><Button variant="outline" className="gap-2"><Calendar className="size-4" /> Browse events</Button></Link>
+            <Link to="/app/finder" className="inline-flex"><Button className="gap-2"><Compass className="size-4" /> Find alumni</Button></Link>
+            <Link to="/app/events" className="inline-flex"><Button variant="outline" className="gap-2"><Calendar className="size-4" /> Browse events</Button></Link>
           </div>
         </div>
+      </motion.div>
+
+      <motion.div variants={item} className="grid xl:grid-cols-[1.1fr_0.9fr] gap-5">
+        <Card className="overflow-hidden border-border/80 bg-card/95">
+          <CardContent className="p-5 space-y-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-xs uppercase tracking-[0.25em] text-muted-foreground">AI smart summary</div>
+                <h3 className="font-serif text-2xl mt-1">Your network pulse</h3>
+                <p className="text-sm text-muted-foreground">Quick intelligence about your recent momentum on ALink.</p>
+              </div>
+              <Sparkles className="size-5 text-[var(--brand-500)]" />
+            </div>
+            <div className="grid sm:grid-cols-2 gap-3">
+              {smartSummary.map((itemText) => (
+                <div key={itemText} className="rounded-2xl border border-border bg-muted/30 p-3 text-sm">{itemText}</div>
+              ))}
+            </div>
+            <div className="rounded-2xl border border-dashed border-[var(--brand-500)]/30 bg-[color:var(--brand-50)]/60 dark:bg-[color:var(--brand-900)]/20 p-3 text-xs text-muted-foreground">
+              Smart hint: your dashboard is now auto-highlighting the most meaningful moves for the week so you can act faster.
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="overflow-hidden border-border/80 bg-card/95">
+          <CardContent className="p-5 space-y-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-xs uppercase tracking-[0.25em] text-muted-foreground">Important links</div>
+                <h3 className="font-serif text-2xl mt-1">Pinned quick access</h3>
+              </div>
+              <Pin className="size-5 text-[var(--brand-500)]" />
+            </div>
+            <div className="space-y-2">
+              {importantLinks.length > 0 ? importantLinks.map((item) => (
+                <div key={item.id} className="flex items-center gap-2 rounded-xl border border-border bg-muted/30 p-3 text-sm hover:bg-muted/60 transition">
+                  <a href={normalizeLink(item.url)} target="_blank" rel="noreferrer" className="flex min-w-0 items-center gap-2 flex-1 truncate">
+                    <Link2 className="size-4 text-[var(--brand-500)]" />
+                    <span className="truncate">{item.label}</span>
+                  </a>
+                  <Button size="sm" variant={item.pinned ? "default" : "outline"} className="h-8 px-2" onClick={() => setImportantLinks(prev => prev.map(entry => entry.id === item.id ? { ...entry, pinned: !entry.pinned } : entry))}>
+                    {item.pinned ? "Pinned" : "Pin"}
+                  </Button>
+                </div>
+              )) : <div className="text-sm text-muted-foreground">Pin a link to keep it handy.</div>}
+            </div>
+            {duplicateLinks.length > 0 && (
+              <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-900 dark:text-amber-200">
+                <div className="flex items-center gap-1.5 font-semibold"><ShieldAlert className="size-3.5" /> Duplicate link detected</div>
+                <p className="mt-1">{duplicateLinks.length} saved link{duplicateLinks.length === 1 ? "" : "s"} share the same destination and may be worth consolidating.</p>
+              </div>
+            )}
+            <div className="space-y-2 rounded-2xl border border-border bg-muted/20 p-3">
+              <Input value={linkLabel} onChange={(e) => setLinkLabel(e.target.value)} placeholder="Link name" className="h-9" />
+              <Input value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} placeholder="https://example.com" className="h-9" />
+              <Button className="w-full h-9" onClick={() => {
+                const cleanedUrl = normalizeLink(linkUrl);
+                if (!linkLabel.trim() || !cleanedUrl) {
+                  toast.error("Add both a label and a valid link.");
+                  return;
+                }
+                const isDuplicate = importantLinks.some(item => normalizeLink(item.url).toLowerCase() === cleanedUrl.toLowerCase());
+                if (isDuplicate) {
+                  toast.warning("Duplicate link detected. Please reuse the existing entry instead.");
+                  return;
+                }
+                setImportantLinks(prev => [{ id: `link-${Date.now()}`, label: linkLabel.trim(), url: cleanedUrl, pinned: true }, ...prev]);
+                setLinkLabel("");
+                setLinkUrl("");
+                toast.success("Link saved to your quick-access tray.");
+              }}>Add important link</Button>
+            </div>
+          </CardContent>
+        </Card>
       </motion.div>
 
       {/* Stat tiles */}
@@ -322,16 +460,36 @@ export default function StudentDashboard() {
             <Sparkles className="size-4 text-[var(--brand-500)]" />
           </div>
           <div className="p-3 space-y-1">
-            {people.filter(p => p.role === "alumni").slice(0, 4).map(p => (
+            {(recommendedPeople.length > 0 ? recommendedPeople : people.filter(p => p.role === "alumni")).slice(0, 4).map(p => (
               <Link to={`/app/connections?focus=${p.id}`} key={p.id} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-muted/60 transition group">
                 <Avatar className="size-10"><AvatarImage src={p.avatar} /><AvatarFallback>{p.name[0]}</AvatarFallback></Avatar>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm truncate flex items-center gap-1.5">{p.name}{p.open && <span className="size-1.5 rounded-full bg-[var(--mint)]" title="Open to mentor" />}</div>
                   <div className="text-xs text-muted-foreground truncate">{p.title}{p.company ? ` · ${p.company}` : ""}</div>
+                  {p.reasons?.[0] && <div className="text-[10px] text-muted-foreground truncate italic">{p.reasons[0]}</div>}
                 </div>
-                <Button size="sm" variant="outline" className="h-7 px-2.5 opacity-0 group-hover:opacity-100 transition">Connect</Button>
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                  {p.matchScore != null && (
+                    <Badge variant="secondary" className="text-[9px] h-4 px-1.5 rounded-full">{Math.round(p.matchScore * 100)}% match</Badge>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2.5 opacity-0 group-hover:opacity-100 transition"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      sendConnectionRequest(p);
+                    }}
+                  >
+                    Connect
+                  </Button>
+                </div>
               </Link>
             ))}
+            {recommendedPeople.length === 0 && people.filter(p => p.role === "alumni").length === 0 && (
+              <div className="p-3 text-sm text-muted-foreground">No recommendations yet.</div>
+            )}
           </div>
         </motion.div>
 
@@ -341,16 +499,28 @@ export default function StudentDashboard() {
             <Briefcase className="size-4 text-[var(--brand-500)]" />
           </div>
           <div className="divide-y divide-border">
-            {jobs.slice(0, 4).length > 0 ? jobs.slice(0, 4).map(j => (
+            {(recommendedJobs.length > 0 ? recommendedJobs : jobs).slice(0, 4).length > 0 ? (recommendedJobs.length > 0 ? recommendedJobs : jobs).slice(0, 4).map(j => (
               <Link to="/app/jobs" key={j.id} className="flex items-center gap-3 p-3 hover:bg-muted/40">
                 <div className="size-10 rounded-xl grid place-items-center font-mono text-xs text-white" style={{ background: `linear-gradient(135deg, var(--brand-500), var(--amber))` }}>
-                  {j.company.slice(0,2).toUpperCase()}
+                  {(j.company || "??").slice(0,2).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm truncate">{j.role}</div>
                   <div className="text-xs text-muted-foreground truncate">{j.company} · {j.location}</div>
+                  {j.matchedSkills?.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {j.matchedSkills.slice(0, 3).map((sk: string) => (
+                        <span key={sk} className="text-[9px] px-1.5 py-0.5 rounded-full bg-[color:var(--brand-50)] dark:bg-[color:var(--brand-900)]/40 text-[color:var(--brand-700)] dark:text-[color:var(--brand-300)]">{sk}</span>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <Badge variant="secondary" className="rounded-full">{j.alumniCount ?? 0} alumni</Badge>
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                  {j.matchScore != null && (
+                    <Badge variant="secondary" className="text-[9px] h-4 px-1.5 rounded-full">{Math.round(j.matchScore * 100)}% match</Badge>
+                  )}
+                  <Badge variant="secondary" className="rounded-full">{j.alumniCount ?? 0} alumni</Badge>
+                </div>
               </Link>
             )) : <div className="p-5 text-sm text-muted-foreground">No recent jobs to show.</div>}
           </div>
@@ -413,7 +583,7 @@ export default function StudentDashboard() {
                  <Sparkles className="size-4 text-[var(--brand-600)]" />}
               </div>
               <div className="flex-1"><div className="text-sm">{a.title}</div><div className="text-xs text-muted-foreground">{a.meta}</div></div>
-              <div className="text-xs text-muted-foreground">{a.at}</div>
+              <div className="text-xs text-muted-foreground">{timeAgo(a.at)}</div>
             </div>
           )) : <div className="p-5 text-sm text-muted-foreground text-center">No recent activity.</div>}
         </div>
