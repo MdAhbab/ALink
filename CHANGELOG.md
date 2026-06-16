@@ -40,14 +40,31 @@ actually take effect.
   (revoked/expired token) now signs the user out instead of leaving a broken
   half-authenticated UI; persisted sessions are revalidated against `/users/me`
   on mount. `AuthProvider` memoizes its context value.
+- **Chat unread counts now include AI replies.** AI messages have a NULL sender,
+  which the `sender_id != me` filter silently dropped, so they never counted as
+  unread and were never marked read. A shared predicate now treats them like any
+  other incoming message across the serializer, thread list, and mark-read.
 
 ### UX
 
-- **Appearance preferences now apply globally.** The "Reduce motion" and
-  "Density" settings were persisted but never took effect; a `PreferencesGate`
-  applies them at boot and on change (incl. Framer `MotionConfig` so JS
-  animations honour reduce-motion). List entry-stagger delays are capped so long
-  lists no longer animate in for seconds.
+- **Appearance preferences now apply globally.** The "Reduce motion", "Density",
+  and **accent** settings were persisted but never took effect; a
+  `PreferencesGate` applies them at boot and on change (incl. Framer
+  `MotionConfig` so JS animations honour reduce-motion). The accent picker now
+  drives `data-accent`; "violet" keeps the theme-tuned default (lighter primary
+  in dark mode). List entry-stagger delays are capped so long lists no longer
+  animate in for seconds.
+
+### Tooling & security
+
+- **TypeScript is now type-checked.** The repo was configured for strict TS but
+  never installed or ran it, so type errors shipped silently. Added `typescript`
+  + the missing `@types/*`, a `vite-env.d.ts`, a `typecheck` script, and wired
+  `tsc --noEmit` into `build`; fixed the 30 real errors it surfaced.
+- **Patched dependency advisories** — react-router 7.13 → 7.17 (XSS / open
+  redirect / DoS) and vite 6.3.5 → 6.4.3, both within their major ranges. The
+  remaining esbuild advisory is dev-only and Deno-specific (only fixable via a
+  vite v8 major bump) and is deliberately deferred.
 
 ### Cleanup
 
