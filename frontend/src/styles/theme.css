@@ -147,10 +147,8 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
-[data-accent="violet"] {
-  --primary: var(--brand-500);
-  --ring: var(--brand-500);
-}
+/* "violet" is the brand default and intentionally has no override, so the
+   theme-tuned --primary/--ring (lighter in dark mode) are preserved. */
 [data-accent="amber"] {
   --primary: var(--amber);
   --ring: var(--amber);

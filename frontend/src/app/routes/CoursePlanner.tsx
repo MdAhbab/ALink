@@ -329,7 +329,8 @@ function groupStats(group: RequirementGroup, completed: Set<string>) {
     return acc;
   }, {});
   const strongestArea = Object.entries(areaCounts).sort((a, b) => b[1] - a[1])[0];
-  const areaSatisfied = !group.areaMinimum || Object.values(areaCounts).some((count) => count >= group.areaMinimum);
+  const areaMinimum = group.areaMinimum;
+  const areaSatisfied = !areaMinimum || Object.values(areaCounts).some((count) => count >= areaMinimum);
   const countSatisfied = done.length >= needed;
   return {
     done,
@@ -338,6 +339,7 @@ function groupStats(group: RequirementGroup, completed: Set<string>) {
     missingCount: Math.max(0, needed - done.length),
     isComplete: countSatisfied && areaSatisfied,
     areaSatisfied,
+    areaMinimum,
     strongestArea,
   };
 }

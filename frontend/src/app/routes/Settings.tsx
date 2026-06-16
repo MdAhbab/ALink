@@ -83,9 +83,10 @@ export default function Settings() {
 
   React.useEffect(() => {
     document.documentElement.dataset.density = prefs.density;
-  }, [prefs.density]);
+    document.documentElement.dataset.accent = prefs.accent;
+  }, [prefs.density, prefs.accent]);
 
-  if (!user) return null;
+  if (!user || !draft) return null;
 
   const setP = <K extends keyof Prefs>(k: K, v: Prefs[K]) => {
     setPrefs((p) => {

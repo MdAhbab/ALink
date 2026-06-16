@@ -4,6 +4,7 @@ import { useAuth } from "./auth";
 
 type AppearancePrefs = {
   density?: "comfortable" | "compact";
+  accent?: "violet" | "amber" | "mint" | "rose";
   reduceMotion?: boolean;
 };
 
@@ -25,9 +26,9 @@ function readLocalPrefs(): AppearancePrefs {
  * (Framer Motion's JS-driven animations don't respond to a CSS media query).
  *
  * This gate reads the signed-in user's prefs (falling back to the locally
- * cached copy when logged out), reflects density via `data-density`, toggles a
- * `reduce-motion` class for CSS transitions, and wraps the tree in
- * `MotionConfig` so Framer animations honour the in-app toggle too.
+ * cached copy when logged out), reflects density via `data-density`, the accent
+ * via `data-accent`, toggles a `reduce-motion` class for CSS transitions, and
+ * wraps the tree in `MotionConfig` so Framer animations honour the toggle too.
  */
 export function PreferencesGate({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
@@ -40,8 +41,9 @@ export function PreferencesGate({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     const root = document.documentElement;
     root.dataset.density = prefs.density ?? "comfortable";
+    root.dataset.accent = prefs.accent ?? "violet";
     root.classList.toggle("reduce-motion", reduceMotion);
-  }, [prefs.density, reduceMotion]);
+  }, [prefs.density, prefs.accent, reduceMotion]);
 
   return <MotionConfig reducedMotion={reduceMotion ? "always" : "user"}>{children}</MotionConfig>;
 }

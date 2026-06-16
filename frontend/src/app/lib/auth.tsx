@@ -23,6 +23,8 @@ export type Person = {
   institutionEmail?: string;
   secondaryInstitutions: string[];
   linkedin?: string;
+  gpa?: number;
+  phone?: string;
   prefs?: Record<string, any>;
 };
 

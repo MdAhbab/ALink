@@ -19,7 +19,9 @@ import { toast } from "sonner";
 import { apiRequest, apiUpload, getAuthToken } from "../lib/api";
 import { AvatarPicker } from "../components/profile/AvatarPicker";
 
-const COVER_OPTIONS = [
+type CoverOption = { id: string; name: string; background: string; backgroundSize?: string };
+
+const COVER_OPTIONS: CoverOption[] = [
   {
     id: "aurora",
     name: "Aurora",
@@ -51,7 +53,7 @@ const COVER_OPTIONS = [
       "linear-gradient(90deg, rgba(255,255,255,0.16) 1px, transparent 1px), linear-gradient(rgba(255,255,255,0.16) 1px, transparent 1px), linear-gradient(120deg, #243B55 0%, #5DE0B0 52%, #7C5CFF 100%)",
     backgroundSize: "42px 42px, 42px 42px, auto",
   },
-] as const;
+];
 
 function getCover(id?: string) {
   return COVER_OPTIONS.find((cover) => cover.id === id) ?? COVER_OPTIONS[0];
