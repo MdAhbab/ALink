@@ -63,13 +63,65 @@ def run_command(command: list[str], cwd: Path | None = None) -> None:
     subprocess.run(command, cwd=str(cwd) if cwd else None, check=True)
 
 
+# ─── Backend interpreter selection ──────────────────────────────────────────
+# The pinned ML stack (numpy 2.1.1 / scipy 1.14.1 / scikit-learn 1.5.2) only
+# publishes wheels for CPython 3.10–3.13.  Newer interpreters (e.g. 3.14) have
+# no wheels, so pip falls back to building from source — which currently fails.
+# Pick a supported interpreter instead of blindly using whatever ran this file.
+MIN_PY = (3, 10)
+MAX_PY = (3, 13)
+
+
+def python_version(executable: str) -> tuple[int, int] | None:
+    try:
+        out = subprocess.run(
+            [executable, "-c", "import sys; print(sys.version_info[0], sys.version_info[1])"],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.split()
+        return int(out[0]), int(out[1])
+    except (subprocess.SubprocessError, OSError, ValueError, IndexError):
+        return None
+
+
+def is_supported(version: tuple[int, int] | None) -> bool:
+    return version is not None and MIN_PY <= version <= MAX_PY
+
+
+def find_backend_python() -> str:
+    # Prefer the interpreter running this script when it is supported.
+    if is_supported((sys.version_info[0], sys.version_info[1])):
+        return sys.executable
+
+    # Otherwise search PATH for a supported CPython, newest first.
+    for minor in range(MAX_PY[1], MIN_PY[1] - 1, -1):
+        found = shutil.which(f"python3.{minor}")
+        if found and is_supported(python_version(found)):
+            return found
+
+    current = f"{sys.version_info[0]}.{sys.version_info[1]}"
+    raise RuntimeError(
+        f"No compatible Python interpreter found. The backend needs CPython "
+        f"{MIN_PY[0]}.{MIN_PY[1]}–{MAX_PY[0]}.{MAX_PY[1]} (you are running {current}). "
+        f"Install one (e.g. `brew install python@3.13`) and re-run."
+    )
+
+
 # ─── Backend venv ───────────────────────────────────────────────────────────
 def ensure_backend_venv() -> None:
     if BACKEND_VENV_PYTHON.exists():
-        info("Backend virtual environment exists.")
-        return
-    info("Creating backend virtual environment...")
-    run_command([sys.executable, "-m", "venv", str(BACKEND_VENV_DIR)], cwd=BACKEND_DIR)
+        if is_supported(python_version(str(BACKEND_VENV_PYTHON))):
+            info("Backend virtual environment exists.")
+            return
+        info("Existing backend venv uses an unsupported Python; recreating...")
+        shutil.rmtree(BACKEND_VENV_DIR, ignore_errors=True)
+
+    interpreter = find_backend_python()
+    version = python_version(interpreter)
+    label = f"Python {version[0]}.{version[1]}" if version else "Python"
+    info(f"Creating backend virtual environment ({label})...")
+    run_command([interpreter, "-m", "venv", str(BACKEND_VENV_DIR)], cwd=BACKEND_DIR)
 
 
 def ensure_backend_dependencies() -> None:
