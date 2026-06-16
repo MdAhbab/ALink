@@ -290,6 +290,14 @@ class MentorProgramIn(BaseModel):
     spots: int
     focus: list[str]
     price: Literal["Free", "Paid"] = "Free"
+    start_date: str = Field(default="", alias="startDate")
+
+
+class MentorApplicationOut(ORMBase):
+    id: str
+    status: str
+    applicant: UserPublic
+    created_at: datetime = Field(alias="createdAt")
 
 
 class MentorProgramOut(ORMBase):
@@ -302,6 +310,8 @@ class MentorProgramOut(ORMBase):
     filled: int
     focus: list[str]
     price: Literal["Free", "Paid"]
+    start_date: Optional[str] = Field(default=None, alias="startDate")
+    applications: list[MentorApplicationOut] = []
 
 
 # ---------- Stories -------------------------------------------------------- #
@@ -310,6 +320,7 @@ class StoryIn(BaseModel):
     cover: str
     excerpt: str
     tag: str
+    body: str = ""
 
 class StoryOut(ORMBase):
     id: str
@@ -318,6 +329,7 @@ class StoryOut(ORMBase):
     read_minutes: int = Field(alias="readMinutes")
     cover: str
     excerpt: str
+    body: str
     tag: str
 
 
@@ -365,6 +377,12 @@ class ChatMessageIn(BaseModel):
 
 class ChatDirectIn(BaseModel):
     user_id: str = Field(alias="userId")
+
+
+class ChatGroupIn(BaseModel):
+    user_ids: list[str] = Field(alias="userIds")
+    title: Optional[str] = None
+    program_id: Optional[str] = Field(default=None, alias="programId")
 
 
 class ChatThreadOut(ORMBase):

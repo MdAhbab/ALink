@@ -11,7 +11,7 @@ from .database import Base, SessionLocal, engine
 from .models import (
     Achievement, Activity, Booking, ChatMember, ChatMessage, ChatThread,
     Connection, ConnectionRequest, Event, Goal, Job, MentorProgram,
-    Notification, Referral, Story, User, UserAchievement, Verification,
+    MentorApplication, Notification, Referral, Story, User, UserAchievement, Verification,
 )
 from .security import hash_password
 
@@ -232,13 +232,34 @@ def seed(reset: bool = True) -> None:
         db.add_all([
             MentorProgram(id="m1", title="Path to Product Design", mentor_id="u1",
                           duration="6 weeks", cadence="Weekly · 45m", spots=8, filled=6,
-                          focus=["Portfolio review", "Design systems"], price="Free"),
+                          focus=["Portfolio review", "Design systems"], price="Free", start_date="2026-07-01"),
             MentorProgram(id="m2", title="Backend Interview Sprint", mentor_id="u2",
                           duration="4 weeks", cadence="Bi-weekly · 60m", spots=10, filled=9,
-                          focus=["DSA", "System design"], price="Free"),
+                          focus=["DSA", "System design"], price="Free", start_date="2026-06-15"),
             MentorProgram(id="m3", title="Founder Office Hours", mentor_id="u7",
                           duration="Ongoing", cadence="Monthly · 30m", spots=15, filled=4,
-                          focus=["Pitching", "Fundraising"], price="Free"),
+                          focus=["Pitching", "Fundraising"], price="Free", start_date="2026-07-10"),
+        ])
+        db.add_all([
+            MentorApplication(id="ma1", program_id="m1", user_id="u2", status="applied"),
+            MentorApplication(id="ma2", program_id="m1", user_id="u3", status="applied"),
+            MentorApplication(id="ma3", program_id="m1", user_id="u4", status="applied"),
+            MentorApplication(id="ma4", program_id="m1", user_id="u5", status="applied"),
+            MentorApplication(id="ma5", program_id="m1", user_id="u6", status="applied"),
+            MentorApplication(id="ma6", program_id="m1", user_id="u8", status="applied"),
+            MentorApplication(id="ma7", program_id="m2", user_id="u1", status="applied"),
+            MentorApplication(id="ma8", program_id="m2", user_id="u3", status="applied"),
+            MentorApplication(id="ma9", program_id="m2", user_id="u4", status="applied"),
+            MentorApplication(id="ma10", program_id="m2", user_id="u5", status="applied"),
+            MentorApplication(id="ma11", program_id="m2", user_id="u6", status="applied"),
+            MentorApplication(id="ma12", program_id="m2", user_id="u7", status="applied"),
+            MentorApplication(id="ma13", program_id="m2", user_id="u8", status="applied"),
+            MentorApplication(id="ma14", program_id="m2", user_id="me", status="applied"),
+            MentorApplication(id="ma15", program_id="m2", user_id="admin", status="applied"),
+            MentorApplication(id="ma16", program_id="m3", user_id="u1", status="applied"),
+            MentorApplication(id="ma17", program_id="m3", user_id="u2", status="applied"),
+            MentorApplication(id="ma18", program_id="m3", user_id="u3", status="applied"),
+            MentorApplication(id="ma19", program_id="m3", user_id="u5", status="applied"),
         ])
 
         # --- Stories --------------------------------------------------- #
@@ -246,18 +267,22 @@ def seed(reset: bool = True) -> None:
             Story(id="s1", title="From dorm to design: my Linear journey", author_id="u1",
                   read_minutes=6, cover="#7C5CFF",
                   excerpt="Five reflections on portfolio-building when nobody's watching.",
+                  body="It took quiet evenings and relentless iteration to turn my portfolio from a side project into a career launchpad. I learned to collect feedback, refine every case study, and let the story of my work lead the conversation.",
                   tag="Design"),
             Story(id="s2", title="The referral that changed my career", author_id="u2",
                   read_minutes=4, cover="#F5B461",
                   excerpt="A short note to your future self about reaching out.",
+                  body="The most important referral I ever received came after I reached out with a clear ask and a short, thoughtful message. Alumni want to help — make it easy for them to say yes.",
                   tag="Engineering"),
             Story(id="s3", title="Investing in founders, finding yourself", author_id="u3",
                   read_minutes=8, cover="#5DE0B0",
                   excerpt="What I wish I knew before pivoting into venture.",
+                  body="Moving from product to venture taught me the value of listening more than pitching. The best founders are resilient, curious, and humble; my job was to help them frame their vision without overcomplicating it.",
                   tag="Venture"),
             Story(id="s4", title="How to mentor without burning out", author_id="u4",
                   read_minutes=5, cover="#FF6B8A",
                   excerpt="Boundaries, cadence, and the joy of compound impact.",
+                  body="Mentoring is most sustainable when you set clear expectations, protect your time, and share frameworks instead of answers. Small weekly check-ins compound into real progress for both sides.",
                   tag="Mentorship"),
         ])
 

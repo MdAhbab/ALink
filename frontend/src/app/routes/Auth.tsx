@@ -123,10 +123,11 @@ export function LoginPage() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError(null);
-    if (!EMAIL_RE.test(email)) { toast.error("Please enter a valid email"); return; }
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!EMAIL_RE.test(normalizedEmail)) { toast.error("Please enter a valid email"); return; }
     if (password.length < 8) { toast.error("Password must be at least 8 characters"); return; }
     try {
-      await login(email, password);
+      await login(normalizedEmail, password);
       setSubmitted(true);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Please check your credentials and try again.";
@@ -146,7 +147,7 @@ export function LoginPage() {
             id="email"
             type="email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => setEmail(e.target.value.toLowerCase())}
             placeholder="you@example.com"
             required
           />
@@ -201,8 +202,8 @@ export function RegisterPage() {
     if (submitted && user) nav("/onboarding", { replace: true });
   }, [submitted, user, nav]);
 
-  const emailValid = email.length === 0 || EMAIL_RE.test(email);
-  const instValid = instEmail.length === 0 || (EMAIL_RE.test(instEmail) && EDU_RE.test(instEmail));
+  const emailValid = email.length === 0 || EMAIL_RE.test(email.toLowerCase());
+  const instValid = instEmail.length === 0 || (EMAIL_RE.test(instEmail.toLowerCase()) && EDU_RE.test(instEmail.toLowerCase()));
 
   const addSecondary = () => {
     const v = secondaryDraft.trim();
@@ -237,11 +238,11 @@ export function RegisterPage() {
 
     try {
       await register({
-        email,
+        email: email.trim().toLowerCase(),
         password,
         name: fullName,
         role,
-        institutionEmail: instEmail || undefined,
+        institutionEmail: instEmail.trim().toLowerCase() || undefined,
         university: university || undefined,
         major: major || undefined,
         graduationYear,
@@ -300,7 +301,7 @@ export function RegisterPage() {
             type="email"
             required
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => setEmail(e.target.value.toLowerCase())}
             placeholder="you@example.com"
             className={!emailValid ? "border-[var(--rose)] focus-visible:ring-[var(--rose)]" : ""}
           />
@@ -316,7 +317,7 @@ export function RegisterPage() {
             id="instEmail"
             type="email"
             value={instEmail}
-            onChange={(e) => setInstEmail(e.target.value)}
+            onChange={(e) => setInstEmail(e.target.value.toLowerCase())}
             placeholder="you@university.edu"
             className={!instValid ? "border-[var(--rose)] focus-visible:ring-[var(--rose)]" : ""}
           />
@@ -499,10 +500,32 @@ export function OnboardingPage() {
                     <div className="absolute z-50 w-full top-full mt-1 bg-card border border-border rounded-lg shadow-lg max-h-40 overflow-y-auto p-1">
                       {TITLES.filter(t => t.toLowerCase().includes(titleSearch.toLowerCase())).length > 0 ? (
                         TITLES.filter(t => t.toLowerCase().includes(titleSearch.toLowerCase())).map(t => (
-                          <div key={t} className="px-2 py-1.5 text-sm hover:bg-muted rounded-md cursor-pointer" onClick={() => { setTitleSearch(t); update({ title: t }); setShowTitleDrop(false); }}>{t}</div>
+                          <button
+                            key={t}
+                            type="button"
+                            className="w-full text-left px-2 py-1.5 text-sm hover:bg-muted rounded-md"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              setTitleSearch(t);
+                              update({ title: t });
+                              setShowTitleDrop(false);
+                            }}
+                          >
+                            {t}
+                          </button>
                         ))
                       ) : (
-                        <div className="px-2 py-1.5 text-sm hover:bg-muted rounded-md cursor-pointer text-[var(--brand-600)] dark:text-[var(--brand-400)]" onClick={() => { update({ title: titleSearch }); setShowTitleDrop(false); }}>Use "{titleSearch}" (Others)</div>
+                        <button
+                          type="button"
+                          className="w-full text-left px-2 py-1.5 text-sm hover:bg-muted rounded-md text-[var(--brand-600)] dark:text-[var(--brand-400)]"
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            update({ title: titleSearch });
+                            setShowTitleDrop(false);
+                          }}
+                        >
+                          Use "{titleSearch}" (Others)
+                        </button>
                       )}
                     </div>
                   )}

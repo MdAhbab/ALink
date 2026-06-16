@@ -1,12 +1,14 @@
 import * as React from "react";
 import { motion } from "motion/react";
+import { useNavigate } from "react-router";
 import { useAuth } from "../lib/auth";
 import { apiRequest, apiRequestAll, getAuthToken } from "../lib/api";
+import { openDirectThread, openGroupThread } from "../lib/chat";
 import { Avatar, AvatarImage, AvatarFallback } from "../components/ui/avatar";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
-import { Calendar, Sparkles, Users, Clock, Plus } from "lucide-react";
+import { Calendar, Sparkles, Users, Clock, Plus, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
 import { Input } from "../components/ui/input";
@@ -14,6 +16,7 @@ import { Label } from "../components/ui/label";
 
 export default function Mentorship() {
   const { user } = useAuth();
+  const nav = useNavigate();
   const [mentorPrograms, setMentorPrograms] = React.useState<any[]>([]);
   const [people, setPeople] = React.useState<any[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -36,6 +39,27 @@ export default function Mentorship() {
       .finally(() => setIsLoading(false));
     return () => controller.abort();
   }, []);
+
+  const openMessage = async (id: string, name: string) => {
+    try {
+      const thread = await openDirectThread(id);
+      toast.success(`Opened conversation with ${name}`);
+      nav(`/app/inbox?thread=${encodeURIComponent(thread.id)}`);
+    } catch (err: any) {
+      toast.error("Failed to open message", { description: err.message });
+    }
+  };
+
+  const openGroupMessage = async (ids: string[], title: string, programId?: string) => {
+    try {
+      const thread = await openGroupThread(ids, title, programId);
+      toast.success("Opened group conversation with applicants");
+      nav(`/app/inbox?thread=${encodeURIComponent(thread.id)}`);
+    } catch (err: any) {
+      toast.error("Failed to open message group", { description: err.message });
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="rounded-3xl border border-border bg-card p-6 md:p-8 relative overflow-hidden flex flex-col md:flex-row md:items-end md:justify-between gap-4">
@@ -70,6 +94,7 @@ export default function Mentorship() {
                       spots: Number(fd.get("spots")) || 0,
                       focus: focusList,
                       price: fd.get("price"),
+                      startDate: fd.get("startDate"),
                     }
                   });
                   toast.success("Mentorship program created successfully");
@@ -104,6 +129,12 @@ export default function Mentorship() {
                       <option value="Free">Free</option>
                       <option value="Paid">Paid</option>
                     </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="startDate">Program Start Date</Label>
+                    <Input id="startDate" name="startDate" type="date" required />
                   </div>
                 </div>
                 <div className="space-y-1.5">
@@ -145,6 +176,9 @@ export default function Mentorship() {
                     <div className="rounded-lg bg-muted/50 p-2.5"><Clock className="size-3.5 inline mr-1 text-muted-foreground" /> {p.duration}</div>
                     <div className="rounded-lg bg-muted/50 p-2.5"><Calendar className="size-3.5 inline mr-1 text-muted-foreground" /> {p.cadence}</div>
                   </div>
+                  {p.startDate && (
+                    <div className="mt-3 text-xs text-muted-foreground">Starts {p.startDate}</div>
+                  )}
                   <div className="mt-4">
                     <div className="flex items-center justify-between text-xs">
                       <span className="inline-flex items-center gap-1"><Users className="size-3.5" /> {p.filled}/{p.spots} enrolled</span>
@@ -154,28 +188,61 @@ export default function Mentorship() {
                       <motion.div className="h-full brand-gradient" initial={{ width: 0 }} animate={{ width: `${fillPct}%` }} transition={{ duration: 0.8 }} />
                     </div>
                   </div>
-                  <div className="mt-5 flex items-center justify-between">
+                  <div className="mt-5 flex items-center justify-between gap-3">
                     <Badge className="rounded-full" variant={p.price === "Free" ? "secondary" : "default"}>{p.price}</Badge>
-                    <Button
-                      size="sm"
-                      onClick={async () => {
-                        try {
-                          await apiRequest(`/mentorship/programs/${p.id}/apply`, {
-                            method: "POST",
-                            token: getAuthToken() || undefined,
-                          });
-                          toast.success(`Applied to ${p.title}`);
-                          setMentorPrograms((current) =>
-                            current.map((x) => x.id === p.id ? { ...x, filled: Math.min(x.spots, (x.filled ?? 0) + 1) } : x)
-                          );
-                        } catch (err: any) {
-                          toast.error("Failed to apply", { description: err.message });
-                        }
-                      }}
-                    >
-                      Apply
-                    </Button>
+                    {user?.id !== p.mentor?.id ? (
+                      <Button
+                        size="sm"
+                        onClick={async () => {
+                          try {
+                            await apiRequest(`/mentorship/programs/${p.id}/apply`, {
+                              method: "POST",
+                              token: getAuthToken() || undefined,
+                            });
+                            toast.success(`Applied to ${p.title}`);
+                            setMentorPrograms((current) =>
+                              current.map((x) => x.id === p.id ? { ...x, filled: Math.min(x.spots, (x.filled ?? 0) + 1) } : x)
+                            );
+                          } catch (err: any) {
+                            toast.error("Failed to apply", { description: err.message });
+                          }
+                        }}
+                      >
+                        Apply
+                      </Button>
+                    ) : (
+                      <Button size="sm" variant="outline" disabled>
+                        Your program
+                      </Button>
+                    )}
                   </div>
+                  {user?.id === p.mentor?.id && p.applications?.length > 0 && (
+                    <div className="mt-6 rounded-3xl border border-border/70 bg-muted/70 p-6 shadow-sm">
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <div className="text-sm font-semibold">Enrolled participants</div>
+                          <div className="text-xs text-muted-foreground">{p.applications.length} applicant{p.applications.length === 1 ? "" : "s"}</div>
+                        </div>
+                        <div className="flex flex-wrap gap-3 justify-end">
+                          <Button size="xs" variant="outline" className="min-w-[9rem]" onClick={() => nav(`/app/mentorship/${p.id}/applicants`)}>
+                            View applicants
+                          </Button>
+                          <Button
+                            type="button"
+                            size="xs"
+                            className="min-w-[9rem]"
+                            onClick={() => openGroupMessage(
+                              p.applications.map((app: any) => app.applicant.id),
+                              `Applicants for ${p.title}`,
+                              p.id,
+                            )}
+                          >
+                            Message applicants
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </motion.div>

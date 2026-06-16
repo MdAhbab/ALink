@@ -1,6 +1,6 @@
 import uuid
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from ..database import get_db
 from ..deps import get_current_user
@@ -30,6 +30,7 @@ def create_program(
         filled=0,
         focus=body.focus,
         price=body.price,
+        start_date=body.start_date,
     )
     db.add(p)
     db.commit()
@@ -38,8 +39,32 @@ def create_program(
 
 
 @router.get("/programs", response_model=list[MentorProgramOut])
-def list_programs(db: Session = Depends(get_db), _: User = Depends(get_current_user)) -> list[MentorProgram]:
-    return db.query(MentorProgram).all()
+def list_programs(db: Session = Depends(get_db), current: User = Depends(get_current_user)) -> list[MentorProgram]:
+    programs = db.query(MentorProgram).options(
+        selectinload(MentorProgram.mentor),
+        selectinload(MentorProgram.applications).selectinload(MentorApplication.applicant),
+    ).all()
+    for program in programs:
+        if program.mentor_id != current.id:
+            program.applications = []
+    return programs
+
+
+@router.get("/programs/{program_id}", response_model=MentorProgramOut)
+def get_program(
+    program_id: str,
+    db: Session = Depends(get_db),
+    current: User = Depends(get_current_user),
+) -> MentorProgram:
+    program = db.query(MentorProgram).options(
+        selectinload(MentorProgram.mentor),
+        selectinload(MentorProgram.applications).selectinload(MentorApplication.applicant),
+    ).filter(MentorProgram.id == program_id).first()
+    if not program:
+        raise HTTPException(404, "Program not found")
+    if program.mentor_id != current.id:
+        program.applications = []
+    return program
 
 
 @router.post("/programs/{program_id}/apply", status_code=201)

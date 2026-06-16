@@ -209,8 +209,10 @@ class MentorProgram(Base):
     filled: Mapped[int] = mapped_column(Integer, default=0)
     focus: Mapped[list[str]] = mapped_column(JSON, default=list)
     price: Mapped[str] = mapped_column(String, default="Free")  # Free|Paid
+    start_date: Mapped[str] = mapped_column(String, default="")
 
     mentor: Mapped[User] = relationship(foreign_keys=[mentor_id])
+    applications: Mapped[list["MentorApplication"]] = relationship(back_populates="program", cascade="all, delete-orphan")
 
 
 class MentorApplication(Base):
@@ -223,7 +225,7 @@ class MentorApplication(Base):
     status: Mapped[str] = mapped_column(String, default="applied")  # applied|accepted|declined
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
 
-    program: Mapped[MentorProgram] = relationship(foreign_keys=[program_id])
+    program: Mapped[MentorProgram] = relationship(foreign_keys=[program_id], back_populates="applications")
     applicant: Mapped[User] = relationship(foreign_keys=[user_id])
 
 

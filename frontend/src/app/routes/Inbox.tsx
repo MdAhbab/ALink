@@ -1,16 +1,17 @@
 import * as React from "react";
 import { motion } from "motion/react";
+import { useNavigate, useSearchParams } from "react-router";
 import { apiRequest, getAuthToken } from "../lib/api";
 import { timeAgo } from "../lib/time";
 import { Card, CardContent } from "../components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
 import { Badge } from "../components/ui/badge";
 import { toast } from "sonner";
-import { useSearchParams } from "react-router";
 
 export default function Inbox() {
   const [params] = useSearchParams();
   const selectedThreadId = params.get("thread");
+  const nav = useNavigate();
   const [notifications, setNotifications] = React.useState<any[]>([]);
   const [threads, setThreads] = React.useState<any[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -70,9 +71,10 @@ export default function Inbox() {
             <div className="divide-y divide-border">
               {isLoading && <div className="p-4 text-sm text-muted-foreground">Loading conversations...</div>}
               {threads.map(t => (
-                <div
+                <button
                   key={t.id}
-                  className={`p-4 flex items-center gap-3 hover:bg-muted/40 cursor-pointer ${
+                  onClick={() => nav(`/app/inbox?thread=${encodeURIComponent(t.id)}`)}
+                  className={`w-full text-left p-4 flex items-center gap-3 hover:bg-muted/40 cursor-pointer ${
                     selectedThreadId === t.id ? "bg-[color:var(--brand-50)] dark:bg-[color:var(--brand-900)]/30" : ""
                   }`}
                 >
@@ -85,7 +87,7 @@ export default function Inbox() {
                     <div className="text-[10px] text-muted-foreground">{t.lastMessage?.at ? timeAgo(t.lastMessage.at) : ""}</div>
                     {t.unreadCount > 0 && <Badge variant="secondary" className="text-[9px] h-4 px-1.5">{t.unreadCount}</Badge>}
                   </div>
-                </div>
+                </button>
               ))}
               {!isLoading && threads.length === 0 && <div className="p-4 text-sm text-muted-foreground">No conversations yet.</div>}
             </div>

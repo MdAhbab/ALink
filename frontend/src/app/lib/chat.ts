@@ -58,3 +58,17 @@ export async function openAIThread(): Promise<ChatThread> {
     token,
   });
 }
+
+export async function openGroupThread(userIds: string[], title?: string, programId?: string): Promise<ChatThread> {
+  const token = getAuthToken();
+  if (!token) throw new Error("You need to be signed in to send messages.");
+  return apiRequest<ChatThread>("/chat/threads/group", {
+    method: "POST",
+    token,
+    body: {
+      userIds,
+      title,
+      programId,
+    },
+  });
+}
