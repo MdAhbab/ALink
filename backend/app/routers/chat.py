@@ -1,7 +1,7 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import and_, func
+from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
 from ..database import get_db
@@ -22,6 +22,12 @@ def _get_stored_title(title: str, program_id: str | None) -> str:
     if program_id:
         return f"{title}||PROGRAM||{program_id}"
     return title
+
+
+def _not_from_me(user_id: str):
+    """Messages not authored by the user — includes AI replies (NULL sender),
+    which `sender_id != user_id` alone would drop (NULL comparisons are NULL)."""
+    return or_(ChatMessage.sender_id != user_id, ChatMessage.sender_id.is_(None))
 
 
 def _build_thread_out(
@@ -62,7 +68,7 @@ def _serialize_thread(t: ChatThread, db: Session, current: User) -> ChatThreadOu
         db.query(ChatMessage)
         .filter(
             ChatMessage.thread_id == t.id,
-            ChatMessage.sender_id != current.id,
+            _not_from_me(current.id),
             ChatMessage.read == False,  # noqa: E712
         )
         .count()
@@ -170,14 +176,13 @@ def list_threads(
         )
     }
 
-    # Unread counts per thread in one query (mirrors single-thread filter:
-    # messages from others that are unread; AI messages have a NULL sender and
-    # are excluded by the inequality, matching prior behaviour).
+    # Unread counts per thread in one query (messages from others — including
+    # AI replies — that are unread).
     unread_by_thread: dict[str, int] = dict(
         db.query(ChatMessage.thread_id, func.count(ChatMessage.id))
         .filter(
             ChatMessage.thread_id.in_(ids),
-            ChatMessage.sender_id != current.id,
+            _not_from_me(current.id),
             ChatMessage.read == False,  # noqa: E712
         )
         .group_by(ChatMessage.thread_id)
@@ -385,6 +390,6 @@ def mark_thread_read(
         raise HTTPException(404, "Thread not found")
     db.query(ChatMessage).filter(
         ChatMessage.thread_id == thread_id,
-        ChatMessage.sender_id != current.id,
-    ).update({"read": True})
+        _not_from_me(current.id),
+    ).update({"read": True}, synchronize_session=False)
     db.commit()
