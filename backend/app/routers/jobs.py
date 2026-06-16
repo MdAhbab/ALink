@@ -2,8 +2,8 @@ import uuid
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import String, cast, or_
-from sqlalchemy.orm import Session
+from sqlalchemy import String, cast, func, or_
+from sqlalchemy.orm import Session, selectinload
 
 from ..database import get_db
 from ..deps import get_current_user, require_admin
@@ -41,8 +41,8 @@ def list_jobs(
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
     current: User = Depends(get_current_user),
-) -> list[Job]:
-    qry = db.query(Job)
+) -> list[JobOut]:
+    qry = db.query(Job).options(selectinload(Job.posted_by))
     if status:
         if status != "live" and current.role != "admin":
             raise HTTPException(403, "Only admins can view non-live jobs")
@@ -63,7 +63,45 @@ def list_jobs(
         qry = qry.filter(Job.type == type)
     if company:
         qry = qry.filter(Job.company.ilike(f"%{company}%"))
-    return qry.order_by(Job.posted.desc()).offset(offset).limit(limit).all()
+    jobs = qry.order_by(Job.posted.desc()).offset(offset).limit(limit).all()
+    return _attach_engagement(db, jobs, current)
+
+
+def _attach_engagement(db: Session, jobs: list[Job], current: User) -> list[JobOut]:
+    """Serialize jobs with like/comment counts folded in via 3 aggregate queries.
+
+    Replaces the previous pattern where the client issued one
+    ``GET /jobs/{id}/engagement`` request per rendered job card.
+    """
+    job_ids = [j.id for j in jobs]
+    if not job_ids:
+        return []
+    like_counts = dict(
+        db.query(JobLike.job_id, func.count(JobLike.id))
+        .filter(JobLike.job_id.in_(job_ids))
+        .group_by(JobLike.job_id)
+        .all()
+    )
+    comment_counts = dict(
+        db.query(JobComment.job_id, func.count(JobComment.id))
+        .filter(JobComment.job_id.in_(job_ids))
+        .group_by(JobComment.job_id)
+        .all()
+    )
+    liked_ids = {
+        row[0]
+        for row in db.query(JobLike.job_id)
+        .filter(JobLike.job_id.in_(job_ids), JobLike.user_id == current.id)
+        .all()
+    }
+    out: list[JobOut] = []
+    for j in jobs:
+        item = JobOut.model_validate(j)
+        item.likes_count = like_counts.get(j.id, 0)
+        item.comments_count = comment_counts.get(j.id, 0)
+        item.liked_by_me = j.id in liked_ids
+        out.append(item)
+    return out
 
 
 @router.post("", response_model=JobOut, status_code=201)
@@ -214,9 +252,15 @@ def list_comments(
     current: User = Depends(get_current_user),
 ) -> list[JobComment]:
     get_visible_job_or_404(db, job_id, current)
-    # Return top-level comments (no parent); replies are nested via the relationship
+    # Return top-level comments (no parent); replies are nested via the
+    # relationship. Eager-load authors and first-level replies (+ their authors)
+    # to avoid lazy per-row loads during serialization.
     return (
         db.query(JobComment)
+        .options(
+            selectinload(JobComment.author),
+            selectinload(JobComment.replies).selectinload(JobComment.author),
+        )
         .filter(JobComment.job_id == job_id, JobComment.parent_id.is_(None))
         .order_by(JobComment.created_at.asc())
         .all()

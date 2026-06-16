@@ -92,7 +92,7 @@ export default function Achievements() {
           const earned = !!a.earnedAt;
           return (
             <motion.div key={a.id}
-              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
+              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(i, 12) * 0.04 }}
               whileHover={{ y: -3, rotate: -1 }}
             >
               <Card className={`relative overflow-hidden ${earned ? "" : "opacity-60"}`}>

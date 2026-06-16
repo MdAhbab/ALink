@@ -8,6 +8,21 @@ export function apiUrl(path: string): string {
   return `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
+/** Event name fired when an authenticated request is rejected (revoked/expired token). */
+export const UNAUTHORIZED_EVENT = "alink:unauthorized";
+
+/**
+ * Notify the app that a request authenticated with a token was rejected.
+ * Skipped for the auth endpoints themselves so a wrong-password login does
+ * not trigger a global logout. AuthProvider listens for this and signs out.
+ */
+function notifyUnauthorized(path: string, hadToken: boolean): void {
+  if (!hadToken || path.startsWith("/auth/")) return;
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
+  }
+}
+
 /** Upload one or more files as multipart/form-data through the shared API base. */
 export async function apiUpload<T = any>(
   path: string,
@@ -26,6 +41,7 @@ export async function apiUpload<T = any>(
   });
 
   if (!res.ok) {
+    if (res.status === 401) notifyUnauthorized(path, Boolean(token));
     let errMsg = `Request failed with status ${res.status}`;
     try {
       const errorData = await res.json();
@@ -81,6 +97,7 @@ export async function apiRequest<T = any>(
   });
 
   if (!res.ok) {
+    if (res.status === 401) notifyUnauthorized(path, Boolean(token));
     let errMsg = `Request failed with status ${res.status}`;
     try {
       const errorData = await res.json();

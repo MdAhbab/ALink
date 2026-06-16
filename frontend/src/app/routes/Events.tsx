@@ -130,7 +130,7 @@ export default function Events() {
             )}
             {filtered.length > 0 ? filtered.map((e, i) => (
               <motion.div key={e.id}
-                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
+                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(i, 12) * 0.04 }}
                 whileHover={{ y: -3 }}>
                 <Card className="overflow-hidden h-full">
                   <div className="h-28 relative grid place-items-center text-white font-serif text-3xl" style={{ background: `linear-gradient(135deg, ${e.cover}, ${e.cover}55)` }}>

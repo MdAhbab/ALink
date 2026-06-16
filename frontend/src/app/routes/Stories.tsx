@@ -166,6 +166,9 @@ export default function Stories() {
                       <div className="mt-4 flex items-center gap-2">
                         <Avatar className="size-7"><AvatarImage src={s.author.avatar} /><AvatarFallback>{s.author.name[0]}</AvatarFallback></Avatar>
                         <div className="text-xs">{s.author.name}</div>
+                        {s.readMinutes ? (
+                          <div className="ml-auto text-xs text-muted-foreground inline-flex items-center gap-1"><Clock className="size-3" /> {s.readMinutes}m</div>
+                        ) : null}
                       </div>
                     </CardContent>
                   </Card>

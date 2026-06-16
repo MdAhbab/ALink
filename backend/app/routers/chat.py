@@ -142,6 +142,7 @@ def list_threads(
 
     ids = [t.id for t in rows]
 
+    # Members for every thread in one query.
     members_by_thread: dict[str, list[User]] = {}
     for tid, member in (
         db.query(ChatMember.thread_id, User)
@@ -151,6 +152,7 @@ def list_threads(
     ):
         members_by_thread.setdefault(tid, []).append(member)
 
+    # Last message per thread (max created_at) in one query.
     latest = (
         db.query(ChatMessage.thread_id, func.max(ChatMessage.created_at).label("mx"))
         .filter(ChatMessage.thread_id.in_(ids))
@@ -168,6 +170,9 @@ def list_threads(
         )
     }
 
+    # Unread counts per thread in one query (mirrors single-thread filter:
+    # messages from others that are unread; AI messages have a NULL sender and
+    # are excluded by the inequality, matching prior behaviour).
     unread_by_thread: dict[str, int] = dict(
         db.query(ChatMessage.thread_id, func.count(ChatMessage.id))
         .filter(

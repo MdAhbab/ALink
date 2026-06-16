@@ -1,9 +1,62 @@
 # Changelog
 
 All notable changes to ALink are documented here.
-This entry covers the full-stack hardening + event-driven + ML + deployment pass.
 
-## [Unreleased] — 2026-06-08
+## [Unreleased] — 2026-06-16
+
+A performance, footprint, and reliability pass: eliminated database N+1
+patterns, removed dead dependencies and code, and made persisted preferences
+actually take effect.
+
+### Performance
+
+- **Eliminated serialization-time N+1 across every list endpoint.** Job,
+  booking, referral, mentorship, story, connection-request, comment, and chat
+  list responses embed related users but previously loaded them lazily per
+  row. They now eager-load relationships (`selectinload`), so each list is a
+  small, fixed number of queries regardless of row count.
+- **Recommenders.** `recommend_jobs` replaced 2×N per-job `COUNT` queries with
+  two grouped aggregates and eager-loads the job poster; `recommend_people`
+  replaced per-candidate connection lookups with a single adjacency-map build.
+- **Job engagement folded into the `/jobs` payload** (likes/comments/likedByMe
+  via three aggregate queries), removing the per-card
+  `GET /jobs/{id}/engagement` request the client fired for every rendered card.
+- **`chat/threads` batched** — members, last message, and unread counts are now
+  fetched in three queries total instead of three per thread.
+
+### Frontend footprint
+
+- **Removed 29 unused runtime dependencies** (the entire MUI/Emotion stack,
+  react-slick, react-responsive-masonry, react-dnd, react-popper/@popperjs, and
+  18 Radix primitives backing unused wrappers); npm pruned 90 packages total. A
+  reachability analysis confirmed only 28 runtime packages are actually used.
+- **Deleted 27 dead `components/ui` wrappers** that nothing imported.
+- **Lazy-loaded the admin route group**, moving Recharts out of the initial
+  bundle: `index` chunk 1064 kB → 622 kB (313 kB → 195 kB gzipped).
+
+### Reliability
+
+- **Global session handling** — a token-bearing request that returns 401
+  (revoked/expired token) now signs the user out instead of leaving a broken
+  half-authenticated UI; persisted sessions are revalidated against `/users/me`
+  on mount. `AuthProvider` memoizes its context value.
+
+### UX
+
+- **Appearance preferences now apply globally.** The "Reduce motion" and
+  "Density" settings were persisted but never took effect; a `PreferencesGate`
+  applies them at boot and on change (incl. Framer `MotionConfig` so JS
+  animations honour reduce-motion). List entry-stagger delays are capped so long
+  lists no longer animate in for seconds.
+
+### Cleanup
+
+- Removed the cosmetic `app/controllers` and `app/views` MVC shims (pure
+  re-exports); routers are included directly.
+- Stopped tracking the transient SQLite WAL sidecar files (`*.db-wal`,
+  `*.db-shm`).
+
+## [Released] — 2026-06-08
 
 A platform-wide pass that took ALink from a working prototype to a deployable,
 event-driven product: fixed critical wiring bugs, eliminated static/mock data in

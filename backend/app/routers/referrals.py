@@ -3,7 +3,7 @@ from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from ..database import get_db
 from ..deps import get_current_user
@@ -22,7 +22,9 @@ def list_referrals(
     db: Session = Depends(get_db),
     current: User = Depends(get_current_user),
 ) -> list[Referral]:
-    qry = db.query(Referral)
+    qry = db.query(Referral).options(
+        selectinload(Referral.owner), selectinload(Referral.referrer)
+    )
     if current.role != "admin":
         qry = qry.filter(or_(Referral.owner_id == current.id, Referral.referrer_id == current.id))
     return qry.order_by(Referral.submitted_at.desc()).offset(offset).limit(limit).all()
