@@ -2,6 +2,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..database import get_db
@@ -24,12 +25,14 @@ def _token_for(user: User) -> TokenOut:
 def register(body: RegisterIn, db: Session = Depends(get_db), _: None = Depends(rate_limit_auth)) -> TokenOut:
     if body.role == "admin":
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Admin accounts cannot self-register")
-    if db.query(User).filter(User.email == body.email).first():
+    normalized_email = body.email.strip().lower()
+    normalized_institution_email = body.institution_email.strip().lower() if body.institution_email else None
+    if db.query(User).filter(func.lower(User.email) == normalized_email).first():
         raise HTTPException(status.HTTP_409_CONFLICT, "Email already registered")
     user = User(
         id=f"u_{uuid.uuid4().hex[:10]}",
-        email=body.email,
-        institution_email=body.institution_email,
+        email=normalized_email,
+        institution_email=normalized_institution_email,
         password_hash=hash_password(body.password),
         name=body.name,
         role=body.role,
@@ -49,7 +52,8 @@ def register(body: RegisterIn, db: Session = Depends(get_db), _: None = Depends(
 
 @router.post("/login", response_model=TokenOut)
 def login(body: LoginIn, db: Session = Depends(get_db), _: None = Depends(rate_limit_auth)) -> TokenOut:
-    user = db.query(User).filter(User.email == body.email).first()
+    normalized_email = body.email.strip().lower()
+    user = db.query(User).filter(func.lower(User.email) == normalized_email).first()
     if not user or not verify_password(body.password, user.password_hash):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid credentials")
     return _token_for(user)
@@ -58,7 +62,8 @@ def login(body: LoginIn, db: Session = Depends(get_db), _: None = Depends(rate_l
 @router.post("/login/oauth", response_model=TokenOut, include_in_schema=False)
 def login_oauth(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)) -> TokenOut:
     """OAuth2-compatible endpoint for Swagger 'Authorize' button."""
-    user = db.query(User).filter(User.email == form.username).first()
+    normalized_email = form.username.strip().lower()
+    user = db.query(User).filter(func.lower(User.email) == normalized_email).first()
     if not user or not verify_password(form.password, user.password_hash):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid credentials")
     return _token_for(user)

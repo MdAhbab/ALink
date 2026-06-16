@@ -11,6 +11,12 @@ router = APIRouter(prefix="/stories", tags=["stories"])
 import uuid
 from ..schemas import StoryIn
 
+
+def estimate_read_minutes(text: str) -> int:
+    words = len(text.split())
+    return max(1, (words + 199) // 200)
+
+
 @router.post("", response_model=StoryOut, status_code=201)
 def create_story(
     body: StoryIn,
@@ -19,15 +25,16 @@ def create_story(
 ) -> Story:
     if current.role not in ["admin", "alumni"]:
         raise HTTPException(403, "Only admins or alumni can create stories")
-    
+    content = body.body.strip() or body.excerpt.strip()
     s = Story(
         id=f"st_{uuid.uuid4().hex[:10]}",
         title=body.title,
         author_id=current.id,
         cover=body.cover,
         excerpt=body.excerpt,
+        body=body.body or body.excerpt,
         tag=body.tag,
-        read_minutes=5,
+        read_minutes=estimate_read_minutes(content),
     )
     db.add(s)
     db.commit()

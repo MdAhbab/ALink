@@ -28,6 +28,7 @@ const Inbox = React.lazy(() => import("./routes/Inbox"));
 const Settings = React.lazy(() => import("./routes/Settings"));
 const Events = React.lazy(() => import("./routes/Events"));
 const Mentorship = React.lazy(() => import("./routes/Mentorship"));
+const MentorshipApplicants = React.lazy(() => import("./routes/MentorshipApplicants"));
 const Jobs = React.lazy(() => import("./routes/Jobs"));
 const Stories = React.lazy(() => import("./routes/Stories"));
 const Achievements = React.lazy(() => import("./routes/Achievements"));
@@ -83,8 +84,10 @@ export default function App() {
               <Route path="/app/settings" element={<Settings />} />
               <Route path="/app/events" element={<Events />} />
               <Route path="/app/mentorship" element={<Mentorship />} />
+              <Route path="/app/mentorship/:programId/applicants" element={<MentorshipApplicants />} />
               <Route path="/app/jobs" element={<Jobs />} />
               <Route path="/app/stories" element={<Stories />} />
+              <Route path="/app/stories/:storyId" element={<Stories />} />
               <Route path="/app/achievements" element={<Achievements />} />
               <Route path="/app/course-planner" element={<CoursePlanner />} />
 

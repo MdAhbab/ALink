@@ -8,10 +8,20 @@ from ..database import get_db
 from ..deps import get_current_user
 from ..events import publish, EventType
 from ..models import ChatMember, ChatMessage, ChatThread, User
-from ..schemas import ChatDirectIn, ChatMessageIn, ChatMessageOut, ChatThreadOut
+from ..schemas import ChatDirectIn, ChatGroupIn, ChatMessageIn, ChatMessageOut, ChatThreadOut
 
 
 router = APIRouter(prefix="/chat", tags=["chat"])
+
+
+def _get_public_title(stored_title: str) -> str:
+    return stored_title.split("||PROGRAM||", 1)[0]
+
+
+def _get_stored_title(title: str, program_id: str | None) -> str:
+    if program_id:
+        return f"{title}||PROGRAM||{program_id}"
+    return title
 
 
 def _build_thread_out(
@@ -21,7 +31,7 @@ def _build_thread_out(
     unread: int,
     current: User,
 ) -> ChatThreadOut:
-    title = t.title
+    title = _get_public_title(t.title)
     if not t.is_ai and not t.is_group:
         other = next((m for m in members if m.id != current.id), None)
         if other:
@@ -73,6 +83,33 @@ def _find_direct_thread(db: Session, current_id: str, target_id: str) -> ChatThr
             continue
         member_count = db.query(ChatMember).filter(ChatMember.thread_id == thread_id).count()
         if member_count == 2:
+            return thread
+    return None
+
+
+def _find_group_thread(
+    db: Session,
+    member_ids: set[str],
+    title: str | None,
+    program_id: str | None,
+) -> ChatThread | None:
+    if not member_ids:
+        return None
+    candidate_threads = (
+        db.query(ChatThread)
+        .filter(ChatThread.is_group == True)
+        .filter(ChatThread.title == _get_stored_title(title or "Group chat", program_id))
+        .join(ChatMember, ChatMember.thread_id == ChatThread.id)
+        .filter(ChatMember.user_id.in_(member_ids))
+        .group_by(ChatThread.id)
+        .having(func.count(ChatMember.id) == len(member_ids))
+        .all()
+    )
+    for thread in candidate_threads:
+        members = {
+            m.user_id for m in db.query(ChatMember).filter(ChatMember.thread_id == thread.id).all()
+        }
+        if members == member_ids:
             return thread
     return None
 
@@ -188,6 +225,46 @@ def create_direct_thread(
         ChatMember(id=f"cm_{uuid.uuid4().hex[:10]}", thread_id=thread.id, user_id=current.id),
         ChatMember(id=f"cm_{uuid.uuid4().hex[:10]}", thread_id=thread.id, user_id=target.id),
     ])
+    db.commit()
+    db.refresh(thread)
+    return _serialize_thread(thread, db, current)
+
+
+@router.post("/threads/group", response_model=ChatThreadOut)
+def create_group_thread(
+    body: ChatGroupIn,
+    db: Session = Depends(get_db),
+    current: User = Depends(get_current_user),
+) -> ChatThreadOut:
+    member_ids = {current.id, *body.user_ids}
+    if current.id in body.user_ids and len(member_ids) == 1:
+        raise HTTPException(400, "Cannot create a group thread with only yourself")
+    if len(member_ids) < 2:
+        raise HTTPException(400, "At least one other participant is required")
+
+    users = db.query(User).filter(User.id.in_(member_ids)).all()
+    if len(users) != len(member_ids):
+        raise HTTPException(404, "One or more participants not found")
+
+    stored_title = _get_stored_title(body.title or "Group chat", body.program_id)
+    existing = _find_group_thread(db, member_ids, body.title, body.program_id)
+    if existing:
+        return _serialize_thread(existing, db, current)
+
+    thread = ChatThread(
+        id=f"ct_{uuid.uuid4().hex[:10]}",
+        title=stored_title,
+        is_ai=False,
+        is_group=True,
+        pinned=False,
+    )
+    db.add(thread)
+    db.flush()
+    members = [
+        ChatMember(id=f"cm_{uuid.uuid4().hex[:10]}", thread_id=thread.id, user_id=user_id)
+        for user_id in member_ids
+    ]
+    db.add_all(members)
     db.commit()
     db.refresh(thread)
     return _serialize_thread(thread, db, current)

@@ -4,6 +4,7 @@ import {
   MessageSquare, Pin, PinOff, Search, Send, Sparkles, X, Phone, Video, ChevronLeft,
   Smile, Paperclip, Bot, Users as UsersIcon, Filter,
 } from "lucide-react";
+import { useSearchParams } from "react-router";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { Badge } from "../ui/badge";
 import { aiSuggestions, openAIThread, type ChatThread, type ChatMessage } from "../../lib/chat";
@@ -18,11 +19,13 @@ type FilterKey = "all" | "pinned" | "ai";
 
 export function ChatDock() {
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [open, setOpen] = React.useState(false);
   const [threads, setThreads] = React.useState<ChatThread[]>([]);
   const [activeId, setActiveId] = React.useState<string | null>(null);
   const [filter, setFilter] = React.useState<FilterKey>("all");
   const [query, setQuery] = React.useState("");
+  const selectedThreadId = searchParams.get("thread");
   
   const fetchThreads = React.useCallback(async () => {
     const token = getAuthToken();
@@ -36,6 +39,13 @@ export function ChatDock() {
   React.useEffect(() => {
     fetchThreads();
   }, [fetchThreads]);
+
+  React.useEffect(() => {
+    if (selectedThreadId) {
+      setOpen(true);
+      setActiveId(selectedThreadId);
+    }
+  }, [selectedThreadId]);
 
   const totalUnread = threads.reduce((n, t) => n + (t.unreadCount || 0), 0);
 
@@ -65,7 +75,11 @@ export function ChatDock() {
   };
 
   const openThread = async (id: string) => {
+    setOpen(true);
     setActiveId(id);
+    const next = new URLSearchParams(searchParams);
+    next.set("thread", id);
+    setSearchParams(next);
     const token = getAuthToken();
     if (!token) return;
     try {
@@ -94,6 +108,9 @@ export function ChatDock() {
 
   const handleCloseActive = () => {
     setActiveId(null);
+    const next = new URLSearchParams(searchParams);
+    next.delete("thread");
+    setSearchParams(next);
     fetchThreads();
   };
 
@@ -434,6 +451,10 @@ function ThreadView({
     }
   };
 
+  const memberById = React.useMemo(
+    () => Object.fromEntries(thread.members.map((member) => [member.id, member.name])),
+    [thread.members],
+  );
   const otherMember = thread.members.find(m => m.id !== userId) || thread.members[0];
   const avatarUrl = thread.isAI ? "" : thread.isGroup ? "" : otherMember?.avatar;
   const openCallRoom = (mode: "call" | "video") => {
@@ -472,7 +493,11 @@ function ThreadView({
         <div className="min-w-0 flex-1">
           <div className="text-sm truncate">{thread.title}</div>
           <div className="text-[11px] text-muted-foreground truncate">
-            {thread.isAI ? "Your network co-pilot" : otherMember?.title || "Member"}
+            {thread.isAI
+              ? "Your network co-pilot"
+              : thread.isGroup
+              ? `${thread.members.length} participants`
+              : otherMember?.title || "Member"}
           </div>
         </div>
         <button onClick={onTogglePin} className="size-8 grid place-items-center rounded-full hover:bg-muted text-muted-foreground" aria-label={thread.pinned ? "Unpin" : "Pin"}>
@@ -504,7 +529,7 @@ function ThreadView({
       <div ref={scrollRef} className="flex-1 overflow-y-auto scrollbar-thin p-3 space-y-2">
         <AnimatePresence initial={false}>
           {messages.map((m) => (
-            <Bubble key={m.id} m={m} mine={m.senderId === userId} />
+            <Bubble key={m.id} m={m} mine={m.senderId === userId} senderName={thread.isGroup ? memberById[m.senderId || ""] : undefined} />
           ))}
         </AnimatePresence>
         {thread.isAI && (
@@ -612,7 +637,7 @@ function toSafeMediaUrl(path: string): string | null {
   }
 }
 
-function Bubble({ m, mine }: { m: ChatMessage; mine: boolean }) {
+function Bubble({ m, mine, senderName }: { m: ChatMessage; mine: boolean; senderName?: string }) {
   const isAI = m.isAI;
   const dateStr = new Date(m.at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
   const image = imageFromMessage(m.body);
@@ -634,6 +659,11 @@ function Bubble({ m, mine }: { m: ChatMessage; mine: boolean }) {
             : "bg-muted text-foreground rounded-bl-sm"
         }`}
       >
+        {senderName && !mine && !isAI ? (
+          <div className="mb-1 text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-semibold">
+            {senderName}
+          </div>
+        ) : null}
         {image && imageUrl ? (
           <a href={imageUrl} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-xl">
             <img src={imageUrl} alt={image.alt} className="max-h-56 w-full object-cover" />

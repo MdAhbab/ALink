@@ -34,6 +34,11 @@ def ensure_compatible_schema() -> None:
         if "token_version" not in user_columns:
             statements.append("ALTER TABLE users ADD COLUMN token_version INTEGER DEFAULT 0 NOT NULL")
 
+    if "mentor_programs" in inspector.get_table_names():
+        program_columns = {c["name"] for c in inspector.get_columns("mentor_programs")}
+        if "start_date" not in program_columns:
+            statements.append("ALTER TABLE mentor_programs ADD COLUMN start_date VARCHAR")
+
     if not statements:
         return
     with engine.begin() as conn:
